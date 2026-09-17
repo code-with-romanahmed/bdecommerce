@@ -1,0 +1,123 @@
+// use prisma-8
+
+enum OrganizationType {
+  BUSINESS
+  BRAND
+}
+
+enum RecordStatus {
+  ACTIVE
+  INACTIVE
+  BLOCKED
+}
+
+enum BranchType {
+  STORE
+  WAREHOUSE
+  OFFICE
+}
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+model Organization {
+  id          Int              @id @default(autoincrement())
+  name        String
+  slug        String           @unique
+  type        OrganizationType @default(BUSINESS)
+  status      RecordStatus     @default(ACTIVE)
+  createdAt   TimestamptzString @default(now())
+  updatedAt   temporal.updatedAtString()
+
+  branches    Branch[]
+  users       User[]
+  categories  Category[]
+  products    Product[]
+}
+
+model Branch {
+  id             Int          @id @default(autoincrement())
+  organizationId Int
+  name           String
+  code           String
+  type           BranchType   @default(STORE)
+  status         RecordStatus @default(ACTIVE)
+  createdAt      TimestamptzString @default(now())
+  updatedAt      temporal.updatedAtString()
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+}
+
+model User {
+  id             Int          @id @default(autoincrement())
+  organizationId Int
+  phone          String       @unique
+  email          String?      @unique
+  name           String?
+  status         RecordStatus @default(ACTIVE)
+  createdAt      TimestamptzString @default(now())
+  updatedAt      temporal.updatedAtString()
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+}
+
+model Category {
+  id             Int          @id @default(autoincrement())
+  organizationId Int
+  name           String
+  slug           String
+  status         ProductStatus @default(ACTIVE)
+  createdAt      TimestamptzString @default(now())
+  updatedAt      temporal.updatedAtString()
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  products       Product[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId])
+}
+
+model Product {
+  id             Int           @id @default(autoincrement())
+  organizationId Int
+  categoryId     Int?
+  name           String
+  slug           String
+  description    String?
+  status         ProductStatus @default(DRAFT)
+  createdAt      TimestamptzString @default(now())
+  updatedAt      temporal.updatedAtString()
+
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+  category       Category?      @relation(fields: [categoryId], references: [id])
+  variants       ProductVariant[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId])
+  @@index([categoryId])
+}
+
+model ProductVariant {
+  id             Int           @id @default(autoincrement())
+  productId      Int
+  sku            String
+  name           String?
+  price          Decimal
+  status         ProductStatus @default(ACTIVE)
+  createdAt      TimestamptzString @default(now())
+  updatedAt      temporal.updatedAtString()
+
+  product        Product       @relation(fields: [productId], references: [id])
+
+  @@unique([sku])
+  @@index([productId])
+}
