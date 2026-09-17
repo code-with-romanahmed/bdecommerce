@@ -34,3 +34,10 @@ coverage/
 # Temporary
 tmp/
 temp/
+# AI / agent generated project metadata
+.claude/
+.cursor/
+.devin/
+
+# AI / agent generated project metadata
+.agents/
