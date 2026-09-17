@@ -492,6 +492,98 @@ export type StorageColumnInputTypes = {
     };
   };
 };
+
+export namespace Models {
+  export type public_Organization = {
+    id: CodecTypes['pg/int4@1']['output'];
+    name: CodecTypes['pg/text@1']['output'];
+    slug: CodecTypes['pg/text@1']['output'];
+    type: 'BUSINESS' | 'BRAND';
+    status: 'ACTIVE' | 'INACTIVE' | 'BLOCKED';
+    createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
+    updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
+    branches: public_Branch[];
+    categories: public_Category[];
+    products: public_Product[];
+    users: public_User[];
+    readonly [RelationKeys]?: 'branches' | 'categories' | 'products' | 'users';
+  };
+  export type public_Branch = {
+    id: CodecTypes['pg/int4@1']['output'];
+    organizationId: CodecTypes['pg/int4@1']['output'];
+    name: CodecTypes['pg/text@1']['output'];
+    code: CodecTypes['pg/text@1']['output'];
+    type: 'STORE' | 'WAREHOUSE' | 'OFFICE';
+    status: 'ACTIVE' | 'INACTIVE' | 'BLOCKED';
+    createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
+    updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
+    organization: public_Organization;
+    readonly [RelationKeys]?: 'organization';
+  };
+  export type public_User = {
+    id: CodecTypes['pg/int4@1']['output'];
+    organizationId: CodecTypes['pg/int4@1']['output'];
+    phone: CodecTypes['pg/text@1']['output'];
+    email: CodecTypes['pg/text@1']['output'] | null;
+    name: CodecTypes['pg/text@1']['output'] | null;
+    status: 'ACTIVE' | 'INACTIVE' | 'BLOCKED';
+    createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
+    updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
+    organization: public_Organization;
+    readonly [RelationKeys]?: 'organization';
+  };
+  export type public_Category = {
+    id: CodecTypes['pg/int4@1']['output'];
+    organizationId: CodecTypes['pg/int4@1']['output'];
+    name: CodecTypes['pg/text@1']['output'];
+    slug: CodecTypes['pg/text@1']['output'];
+    status: 'DRAFT' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
+    createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
+    updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
+    organization: public_Organization;
+    products: public_Product[];
+    readonly [RelationKeys]?: 'organization' | 'products';
+  };
+  export type public_Product = {
+    id: CodecTypes['pg/int4@1']['output'];
+    organizationId: CodecTypes['pg/int4@1']['output'];
+    categoryId: CodecTypes['pg/int4@1']['output'] | null;
+    name: CodecTypes['pg/text@1']['output'];
+    slug: CodecTypes['pg/text@1']['output'];
+    description: CodecTypes['pg/text@1']['output'] | null;
+    status: 'DRAFT' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
+    createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
+    updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
+    category: public_Category | null;
+    organization: public_Organization;
+    variants: public_ProductVariant[];
+    readonly [RelationKeys]?: 'category' | 'organization' | 'variants';
+  };
+  export type public_ProductVariant = {
+    id: CodecTypes['pg/int4@1']['output'];
+    productId: CodecTypes['pg/int4@1']['output'];
+    sku: CodecTypes['pg/text@1']['output'];
+    name: CodecTypes['pg/text@1']['output'] | null;
+    price: CodecTypes['pg/numeric@1']['output'];
+    status: 'DRAFT' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
+    createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
+    updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
+    product: public_Product;
+    readonly [RelationKeys]?: 'product';
+  };
+}
+
+export declare const models: {
+  public: {
+    Organization: Models.public_Organization;
+    Branch: Models.public_Branch;
+    User: Models.public_User;
+    Category: Models.public_Category;
+    Product: Models.public_Product;
+    ProductVariant: Models.public_ProductVariant;
+  };
+};
+
 export type TypeMaps = TypeMapsType<
   CodecTypes,
   QueryOperationTypes,
@@ -1070,6 +1162,7 @@ type ContractBase = Omit<
                   readonly model: 'Organization';
                 };
                 readonly cardinality: 'N:1';
+                readonly nullable: false;
                 readonly on: {
                   readonly localFields: readonly ['organizationId'];
                   readonly targetFields: readonly ['id'];
@@ -1135,6 +1228,7 @@ type ContractBase = Omit<
                   readonly model: 'Organization';
                 };
                 readonly cardinality: 'N:1';
+                readonly nullable: false;
                 readonly on: {
                   readonly localFields: readonly ['organizationId'];
                   readonly targetFields: readonly ['id'];
@@ -1312,6 +1406,7 @@ type ContractBase = Omit<
                   readonly model: 'Category';
                 };
                 readonly cardinality: 'N:1';
+                readonly nullable: true;
                 readonly on: {
                   readonly localFields: readonly ['categoryId'];
                   readonly targetFields: readonly ['id'];
@@ -1323,6 +1418,7 @@ type ContractBase = Omit<
                   readonly model: 'Organization';
                 };
                 readonly cardinality: 'N:1';
+                readonly nullable: false;
                 readonly on: {
                   readonly localFields: readonly ['organizationId'];
                   readonly targetFields: readonly ['id'];
@@ -1404,6 +1500,7 @@ type ContractBase = Omit<
                   readonly model: 'Product';
                 };
                 readonly cardinality: 'N:1';
+                readonly nullable: false;
                 readonly on: {
                   readonly localFields: readonly ['productId'];
                   readonly targetFields: readonly ['id'];
@@ -1473,6 +1570,7 @@ type ContractBase = Omit<
                   readonly model: 'Organization';
                 };
                 readonly cardinality: 'N:1';
+                readonly nullable: false;
                 readonly on: {
                   readonly localFields: readonly ['organizationId'];
                   readonly targetFields: readonly ['id'];
