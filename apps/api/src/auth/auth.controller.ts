@@ -1,15 +1,30 @@
 import {
+  Body,
   Controller,
   Get,
   Post,
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { IsNotEmpty, IsString } from 'class-validator';
 
-import { OtpService } from '../otp/otp.service.js';
 import { AuthService } from './auth.service.js';
-import type { AuthenticatedRequest } from './jwt-auth.guard.js';
 import { JwtAuthGuard } from './jwt-auth.guard.js';
+import type { AuthenticatedRequest } from './jwt-auth.guard.js';
+import { OtpService } from '../otp/otp.service.js';
+import { VerifyOtpDto } from '../otp/otp.dto.js';
+
+class RefreshDto {
+  @IsString()
+  @IsNotEmpty()
+  refreshToken!: string;
+}
+
+class LogoutDto {
+  @IsString()
+  @IsNotEmpty()
+  refreshToken!: string;
+}
 
 @Controller('auth')
 export class AuthController {
@@ -22,37 +37,35 @@ export class AuthController {
   async login() {
     return {
       message:
-        'Use POST /auth/otp/generate and POST /auth/otp/verify for OTP authentication.',
+        'Use POST /auth/otp/generate and POST /auth/otp/verify-login for OTP authentication.',
     };
   }
 
   @Post('otp/verify-login')
-  async verifyLogin(
-    @Req()
-    request: AuthenticatedRequest & {
-      body: { phone?: string; otp?: string };
-    },
-  ) {
-    const phone = request.body?.phone;
-    const otp = request.body?.otp;
+  async verifyLogin(@Body() body: VerifyOtpDto) {
+    await this.otpService.verify(body.phone, body.otp);
 
-    if (!phone || !otp) {
-      return {
-        message: 'phone and otp are required',
-      };
-    }
-
-    await this.otpService.verify(phone, otp);
-
-    const user = await this.authService.findOrCreateUser(phone);
-    const accessToken = await this.authService.issueAccessToken(user);
+    const user = await this.authService.findOrCreateUser(body.phone);
+    const session = await this.authService.createSession(user);
 
     return {
       message: 'Login successful',
-      accessToken,
-      tokenType: 'Bearer',
-      expiresIn: 900,
+      ...session,
       user,
+    };
+  }
+
+  @Post('refresh')
+  async refresh(@Body() body: RefreshDto) {
+    return this.authService.refreshSession(body.refreshToken);
+  }
+
+  @Post('logout')
+  async logout(@Body() body: LogoutDto) {
+    await this.authService.logout(body.refreshToken);
+
+    return {
+      message: 'Logout successful',
     };
   }
 
