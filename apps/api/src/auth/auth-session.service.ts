@@ -3,12 +3,21 @@ import { createHash, randomBytes } from 'node:crypto';
 
 import { RedisService } from '../redis/redis.service.js';
 
+export interface AuthSession {
+  userId: number;
+  organizationId: number;
+  deviceId: string;
+  deviceName: string;
+}
+
 @Injectable()
 export class AuthSessionService {
   private readonly refreshTokenTtlSeconds =
     30 * 24 * 60 * 60;
 
-  constructor(private readonly redisService: RedisService) {}
+  constructor(
+    private readonly redisService: RedisService,
+  ) {}
 
   private hashToken(token: string): string {
     return createHash('sha256')
@@ -38,15 +47,18 @@ export class AuthSessionService {
     userId: number,
     organizationId: number,
     refreshToken: string,
+    deviceId = 'unknown',
+    deviceName = 'Unknown Device',
   ): Promise<void> {
     const redis = this.redisService.getClient();
-
-    const tokenHash = this.hashToken(refreshToken);
 
     await redis.hset(this.sessionKey(sessionId), {
       userId: userId.toString(),
       organizationId: organizationId.toString(),
-      tokenHash,
+      deviceId,
+      deviceName,
+      tokenHash: this.hashToken(refreshToken),
+      createdAt: new Date().toISOString(),
     });
 
     await redis.expire(
@@ -58,10 +70,7 @@ export class AuthSessionService {
   async validateSession(
     sessionId: string,
     refreshToken: string,
-  ): Promise<{
-    userId: number;
-    organizationId: number;
-  } | null> {
+  ): Promise<AuthSession | null> {
     const redis = this.redisService.getClient();
 
     const data = await redis.hgetall(
@@ -72,21 +81,36 @@ export class AuthSessionService {
       return null;
     }
 
-    const tokenHash = this.hashToken(refreshToken);
-
-    if (data.tokenHash !== tokenHash) {
+    if (
+      data.tokenHash !==
+      this.hashToken(refreshToken)
+    ) {
       return null;
     }
 
     return {
       userId: Number(data.userId),
       organizationId: Number(data.organizationId),
+      deviceId: data.deviceId ?? 'unknown',
+      deviceName: data.deviceName ?? 'Unknown Device',
     };
   }
 
-  async revokeSession(sessionId: string): Promise<void> {
+  async revokeSession(
+    sessionId: string,
+  ): Promise<void> {
     const redis = this.redisService.getClient();
 
     await redis.del(this.sessionKey(sessionId));
+  }
+
+  async sessionExists(
+    sessionId: string,
+  ): Promise<boolean> {
+    const redis = this.redisService.getClient();
+
+    return (await redis.exists(
+      this.sessionKey(sessionId),
+    )) === 1;
   }
 }

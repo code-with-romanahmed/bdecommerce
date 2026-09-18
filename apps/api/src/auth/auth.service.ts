@@ -1,9 +1,17 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 
 import { db } from '../prisma/db.js';
-import { AuthSessionService } from './auth-session.service.js';
-import type { AuthUser, JwtPayload } from './auth.types.js';
+import {
+  AuthSessionService,
+} from './auth-session.service.js';
+import type {
+  AuthUser,
+  JwtPayload,
+} from './auth.types.js';
 
 @Injectable()
 export class AuthService {
@@ -12,10 +20,13 @@ export class AuthService {
     private readonly authSessionService: AuthSessionService,
   ) {}
 
-  async findOrCreateUser(phone: string): Promise<AuthUser> {
-    const existingUser = await db.orm.public.User
-      .where({ phone })
-      .first();
+  async findOrCreateUser(
+    phone: string,
+  ): Promise<AuthUser> {
+    const existingUser =
+      await db.orm.public.User
+        .where({ phone })
+        .first();
 
     if (existingUser) {
       return {
@@ -27,15 +38,17 @@ export class AuthService {
       };
     }
 
-    const organization = await db.orm.public.Organization.create({
-      name: `Business ${phone.slice(-4)}`,
-      slug: `business-${phone.slice(-10)}`,
-    });
+    const organization =
+      await db.orm.public.Organization.create({
+        name: `Business ${phone.slice(-4)}`,
+        slug: `business-${phone.slice(-10)}`,
+      });
 
-    const user = await db.orm.public.User.create({
-      organizationId: organization.id,
-      phone,
-    });
+    const user =
+      await db.orm.public.User.create({
+        organizationId: organization.id,
+        phone,
+      });
 
     return {
       id: user.id,
@@ -46,7 +59,9 @@ export class AuthService {
     };
   }
 
-  async issueAccessToken(user: AuthUser): Promise<string> {
+  async issueAccessToken(
+    user: AuthUser,
+  ): Promise<string> {
     const payload: JwtPayload = {
       sub: user.id,
       organizationId: user.organizationId,
@@ -56,8 +71,15 @@ export class AuthService {
     return this.jwtService.signAsync(payload);
   }
 
-  async createSession(user: AuthUser) {
-    const { sessionId, refreshToken } =
+  async createSession(
+    user: AuthUser,
+    deviceId = 'unknown',
+    deviceName = 'Unknown Device',
+  ) {
+    const {
+      sessionId,
+      refreshToken,
+    } =
       this.authSessionService.createRefreshToken();
 
     await this.authSessionService.saveSession(
@@ -65,32 +87,45 @@ export class AuthService {
       user.id,
       user.organizationId,
       refreshToken,
+      deviceId,
+      deviceName,
     );
 
-    const accessToken = await this.issueAccessToken(user);
+    const accessToken =
+      await this.issueAccessToken(user);
 
     return {
       accessToken,
       refreshToken,
       tokenType: 'Bearer',
       expiresIn: 900,
+      sessionId,
     };
   }
 
-  async refreshSession(refreshToken: string) {
+  async refreshSession(
+    refreshToken: string,
+  ) {
     const parts = refreshToken.split('.');
 
-    if (parts.length !== 2) {
-      throw new UnauthorizedException('Invalid refresh token');
+    if (
+      parts.length !== 2 ||
+      !parts[0] ||
+      !parts[1]
+    ) {
+      throw new UnauthorizedException(
+        'Invalid refresh token',
+      );
     }
 
     const sessionId = parts[0];
 
     const session =
-      await this.authSessionService.validateSession(
-        sessionId,
-        refreshToken,
-      );
+      await this.authSessionService
+        .validateSession(
+          sessionId,
+          refreshToken,
+        );
 
     if (!session) {
       throw new UnauthorizedException(
@@ -98,37 +133,63 @@ export class AuthService {
       );
     }
 
-    const user = await this.getUserById(session.userId);
+    const user =
+      await this.getUserById(session.userId);
 
     if (!user) {
-      await this.authSessionService.revokeSession(sessionId);
+      await this.authSessionService
+        .revokeSession(sessionId);
 
-      throw new UnauthorizedException('User not found');
+      throw new UnauthorizedException(
+        'User not found',
+      );
     }
 
-    await this.authSessionService.revokeSession(sessionId);
+    /*
+     * Refresh-token rotation:
+     * The old session is destroyed before
+     * a new refresh token is issued.
+     */
+    await this.authSessionService
+      .revokeSession(sessionId);
 
-    return this.createSession(user);
+    return this.createSession(
+      user,
+      session.deviceId,
+      session.deviceName,
+    );
   }
 
-  async logout(refreshToken: string): Promise<void> {
+  async logout(
+    refreshToken: string,
+  ): Promise<void> {
     const parts = refreshToken.split('.');
 
-    if (parts.length !== 2) {
+    if (
+      parts.length !== 2 ||
+      !parts[0]
+    ) {
       return;
     }
 
-    await this.authSessionService.revokeSession(parts[0]);
+    await this.authSessionService
+      .revokeSession(parts[0]);
   }
 
-  async verifyAccessToken(token: string): Promise<JwtPayload> {
-    return this.jwtService.verifyAsync<JwtPayload>(token);
+  async verifyAccessToken(
+    token: string,
+  ): Promise<JwtPayload> {
+    return this.jwtService
+      .verifyAsync<JwtPayload>(token);
   }
 
-  async getUserById(id: number): Promise<AuthUser | null> {
-    const user = await db.orm.public.User
-      .where({ id })
-      .first();
+  async getUserById(
+    id: number,
+  ): Promise<AuthUser | null> {
+    const user =
+      await db.orm.public.User
+        .where({ id })
+        .first();
 
     if (!user) {
       return null;

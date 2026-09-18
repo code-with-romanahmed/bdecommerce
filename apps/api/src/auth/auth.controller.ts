@@ -6,7 +6,11 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { IsNotEmpty, IsString } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 import { AuthService } from './auth.service.js';
 import { JwtAuthGuard } from './jwt-auth.guard.js';
@@ -26,6 +30,18 @@ class LogoutDto {
   refreshToken!: string;
 }
 
+class VerifyLoginSessionDto extends VerifyOtpDto {
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  deviceId?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  deviceName?: string;
+}
+
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -42,11 +58,25 @@ export class AuthController {
   }
 
   @Post('otp/verify-login')
-  async verifyLogin(@Body() body: VerifyOtpDto) {
-    await this.otpService.verify(body.phone, body.otp);
+  async verifyLogin(
+    @Body() body: VerifyLoginSessionDto,
+  ) {
+    await this.otpService.verify(
+      body.phone,
+      body.otp,
+    );
 
-    const user = await this.authService.findOrCreateUser(body.phone);
-    const session = await this.authService.createSession(user);
+    const user =
+      await this.authService.findOrCreateUser(
+        body.phone,
+      );
+
+    const session =
+      await this.authService.createSession(
+        user,
+        body.deviceId,
+        body.deviceName,
+      );
 
     return {
       message: 'Login successful',
@@ -56,13 +86,21 @@ export class AuthController {
   }
 
   @Post('refresh')
-  async refresh(@Body() body: RefreshDto) {
-    return this.authService.refreshSession(body.refreshToken);
+  async refresh(
+    @Body() body: RefreshDto,
+  ) {
+    return this.authService.refreshSession(
+      body.refreshToken,
+    );
   }
 
   @Post('logout')
-  async logout(@Body() body: LogoutDto) {
-    await this.authService.logout(body.refreshToken);
+  async logout(
+    @Body() body: LogoutDto,
+  ) {
+    await this.authService.logout(
+      body.refreshToken,
+    );
 
     return {
       message: 'Logout successful',
@@ -71,7 +109,9 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
-  getMe(@Req() request: AuthenticatedRequest) {
+  getMe(
+    @Req() request: AuthenticatedRequest,
+  ) {
     return {
       user: request.authUser,
     };
