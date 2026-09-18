@@ -5,6 +5,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { createHash, randomInt } from 'node:crypto';
+
 import { RedisService } from '../redis/redis.service.js';
 import { SmsService } from '../notifications/sms.service.js';
 
@@ -13,6 +14,7 @@ export class OtpService {
   private readonly otpTtlSeconds = 300;
   private readonly cooldownSeconds = 60;
   private readonly maxAttempts = 5;
+  private readonly maxRequestsPerHour = 5;
 
   constructor(
     private readonly redisService: RedisService,
@@ -20,7 +22,9 @@ export class OtpService {
   ) {}
 
   private hashOtp(otp: string): string {
-    return createHash('sha256').update(otp).digest('hex');
+    return createHash('sha256')
+      .update(otp)
+      .digest('hex');
   }
 
   private otpKey(phone: string): string {
@@ -29,6 +33,10 @@ export class OtpService {
 
   private cooldownKey(phone: string): string {
     return `otp:cooldown:${phone}`;
+  }
+
+  private requestCountKey(phone: string): string {
+    return `otp:requests:${phone}`;
   }
 
   async generate(phone: string) {
@@ -41,6 +49,20 @@ export class OtpService {
       );
     }
 
+    const requestCount = await redis.get(
+      this.requestCountKey(phone),
+    );
+
+    if (
+      requestCount &&
+      Number(requestCount) >= this.maxRequestsPerHour
+    ) {
+      throw new HttpException(
+        'Too many OTP requests. Please try again later.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
     const otp = randomInt(100000, 1000000).toString();
 
     await redis.hset(this.otpKey(phone), {
@@ -48,7 +70,10 @@ export class OtpService {
       attempts: '0',
     });
 
-    await redis.expire(this.otpKey(phone), this.otpTtlSeconds);
+    await redis.expire(
+      this.otpKey(phone),
+      this.otpTtlSeconds,
+    );
 
     await redis.set(
       this.cooldownKey(phone),
@@ -56,6 +81,17 @@ export class OtpService {
       'EX',
       this.cooldownSeconds,
     );
+
+    const count = await redis.incr(
+      this.requestCountKey(phone),
+    );
+
+    if (count === 1) {
+      await redis.expire(
+        this.requestCountKey(phone),
+        60 * 60,
+      );
+    }
 
     await this.smsService.sendOtp(phone, otp);
 
@@ -65,13 +101,19 @@ export class OtpService {
     };
   }
 
-  async verify(phone: string, otp: string): Promise<{ verified: true }> {
+  async verify(
+    phone: string,
+    otp: string,
+  ): Promise<{ verified: true }> {
     const redis = this.redisService.getClient();
     const key = this.otpKey(phone);
+
     const data = await redis.hgetall(key);
 
     if (!data.hash) {
-      throw new BadRequestException('Invalid or expired OTP');
+      throw new BadRequestException(
+        'Invalid or expired OTP',
+      );
     }
 
     const attempts = Number(data.attempts ?? 0);
@@ -85,10 +127,15 @@ export class OtpService {
       );
     }
 
-    const isValid = data.hash === this.hashOtp(otp);
+    const isValid =
+      data.hash === this.hashOtp(otp);
 
     if (!isValid) {
-      const newAttempts = await redis.hincrby(key, 'attempts', 1);
+      const newAttempts = await redis.hincrby(
+        key,
+        'attempts',
+        1,
+      );
 
       if (newAttempts >= this.maxAttempts) {
         await redis.del(key);
@@ -99,7 +146,9 @@ export class OtpService {
         );
       }
 
-      throw new BadRequestException('Invalid or expired OTP');
+      throw new BadRequestException(
+        'Invalid or expired OTP',
+      );
     }
 
     await redis.del(key);
