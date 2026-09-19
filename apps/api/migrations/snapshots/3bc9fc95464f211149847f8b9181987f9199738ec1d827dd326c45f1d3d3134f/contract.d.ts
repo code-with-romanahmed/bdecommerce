@@ -34,8 +34,9 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'aa93a8fc16ca62fa8cb8674268ececb25f1bfad1b2c3dbe3354769059f369e15'>;
-export type ExecutionHash = ExecutionHashBase<string>;
+  StorageHashBase<'3bc9fc95464f211149847f8b9181987f9199738ec1d827dd326c45f1d3d3134f'>;
+export type ExecutionHash =
+  ExecutionHashBase<'51aa9a5b081d6357a3e7ee5f8c1af9c2f857057338698d61a937777f7ff9bfde'>;
 export type ProfileHash =
   ProfileHashBase<'3916f444a8a17ad749191acf9e08dad97d1a327b88c2f1d45d12f240296aa8b2'>;
 
@@ -249,6 +250,7 @@ export type FieldOutputTypes = {
       readonly type: 'STORE' | 'WAREHOUSE' | 'OFFICE';
       readonly status: 'ACTIVE' | 'INACTIVE' | 'BLOCKED';
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     };
     readonly Category: {
       readonly id: CodecTypes['pg/int4@1']['output'];
@@ -257,6 +259,7 @@ export type FieldOutputTypes = {
       readonly slug: CodecTypes['pg/text@1']['output'];
       readonly status: 'DRAFT' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     };
     readonly Organization: {
       readonly id: CodecTypes['pg/int4@1']['output'];
@@ -265,6 +268,7 @@ export type FieldOutputTypes = {
       readonly type: 'BUSINESS' | 'BRAND';
       readonly status: 'ACTIVE' | 'INACTIVE' | 'BLOCKED';
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     };
     readonly Permission: {
       readonly id: CodecTypes['pg/int4@1']['output'];
@@ -282,6 +286,7 @@ export type FieldOutputTypes = {
       readonly description: CodecTypes['pg/text@1']['output'] | null;
       readonly status: 'DRAFT' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     };
     readonly ProductVariant: {
       readonly id: CodecTypes['pg/int4@1']['output'];
@@ -291,6 +296,7 @@ export type FieldOutputTypes = {
       readonly price: CodecTypes['pg/numeric@1']['output'];
       readonly status: 'DRAFT' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     };
     readonly Role: {
       readonly id: CodecTypes['pg/int4@1']['output'];
@@ -299,6 +305,7 @@ export type FieldOutputTypes = {
       readonly description: CodecTypes['pg/text@1']['output'] | null;
       readonly status: 'ACTIVE' | 'INACTIVE' | 'BLOCKED';
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     };
     readonly RolePermission: {
       readonly id: CodecTypes['pg/int4@1']['output'];
@@ -314,6 +321,7 @@ export type FieldOutputTypes = {
       readonly name: CodecTypes['pg/text@1']['output'] | null;
       readonly status: 'ACTIVE' | 'INACTIVE' | 'BLOCKED';
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     };
     readonly UserRole: {
       readonly id: CodecTypes['pg/int4@1']['output'];
@@ -333,6 +341,7 @@ export type FieldInputTypes = {
       readonly type: 'STORE' | 'WAREHOUSE' | 'OFFICE';
       readonly status: 'ACTIVE' | 'INACTIVE' | 'BLOCKED';
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
     };
     readonly Category: {
       readonly id: CodecTypes['pg/int4@1']['input'];
@@ -341,6 +350,7 @@ export type FieldInputTypes = {
       readonly slug: CodecTypes['pg/text@1']['input'];
       readonly status: 'DRAFT' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
     };
     readonly Organization: {
       readonly id: CodecTypes['pg/int4@1']['input'];
@@ -349,6 +359,7 @@ export type FieldInputTypes = {
       readonly type: 'BUSINESS' | 'BRAND';
       readonly status: 'ACTIVE' | 'INACTIVE' | 'BLOCKED';
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
     };
     readonly Permission: {
       readonly id: CodecTypes['pg/int4@1']['input'];
@@ -366,6 +377,7 @@ export type FieldInputTypes = {
       readonly description: CodecTypes['pg/text@1']['input'] | null;
       readonly status: 'DRAFT' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
     };
     readonly ProductVariant: {
       readonly id: CodecTypes['pg/int4@1']['input'];
@@ -375,6 +387,7 @@ export type FieldInputTypes = {
       readonly price: CodecTypes['pg/numeric@1']['input'];
       readonly status: 'DRAFT' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
     };
     readonly Role: {
       readonly id: CodecTypes['pg/int4@1']['input'];
@@ -383,6 +396,7 @@ export type FieldInputTypes = {
       readonly description: CodecTypes['pg/text@1']['input'] | null;
       readonly status: 'ACTIVE' | 'INACTIVE' | 'BLOCKED';
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
     };
     readonly RolePermission: {
       readonly id: CodecTypes['pg/int4@1']['input'];
@@ -398,6 +412,7 @@ export type FieldInputTypes = {
       readonly name: CodecTypes['pg/text@1']['input'] | null;
       readonly status: 'ACTIVE' | 'INACTIVE' | 'BLOCKED';
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
     };
     readonly UserRole: {
       readonly id: CodecTypes['pg/int4@1']['input'];
@@ -417,6 +432,7 @@ export type StorageColumnTypes = {
       readonly organizationId: CodecTypes['pg/int4@1']['output'];
       readonly status: 'ACTIVE' | 'INACTIVE' | 'BLOCKED';
       readonly type: 'STORE' | 'WAREHOUSE' | 'OFFICE';
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     };
     readonly category: {
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
@@ -425,6 +441,7 @@ export type StorageColumnTypes = {
       readonly organizationId: CodecTypes['pg/int4@1']['output'];
       readonly slug: CodecTypes['pg/text@1']['output'];
       readonly status: 'DRAFT' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     };
     readonly organization: {
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
@@ -433,6 +450,7 @@ export type StorageColumnTypes = {
       readonly slug: CodecTypes['pg/text@1']['output'];
       readonly status: 'ACTIVE' | 'INACTIVE' | 'BLOCKED';
       readonly type: 'BUSINESS' | 'BRAND';
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     };
     readonly permission: {
       readonly code: CodecTypes['pg/text@1']['output'];
@@ -450,6 +468,7 @@ export type StorageColumnTypes = {
       readonly organizationId: CodecTypes['pg/int4@1']['output'];
       readonly slug: CodecTypes['pg/text@1']['output'];
       readonly status: 'DRAFT' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     };
     readonly productVariant: {
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
@@ -459,6 +478,7 @@ export type StorageColumnTypes = {
       readonly productId: CodecTypes['pg/int4@1']['output'];
       readonly sku: CodecTypes['pg/text@1']['output'];
       readonly status: 'DRAFT' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     };
     readonly role: {
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
@@ -467,6 +487,7 @@ export type StorageColumnTypes = {
       readonly name: CodecTypes['pg/text@1']['output'];
       readonly organizationId: CodecTypes['pg/int4@1']['output'];
       readonly status: 'ACTIVE' | 'INACTIVE' | 'BLOCKED';
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     };
     readonly rolePermission: {
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
@@ -482,6 +503,7 @@ export type StorageColumnTypes = {
       readonly organizationId: CodecTypes['pg/int4@1']['output'];
       readonly phone: CodecTypes['pg/text@1']['output'];
       readonly status: 'ACTIVE' | 'INACTIVE' | 'BLOCKED';
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     };
     readonly userRole: {
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
@@ -501,6 +523,7 @@ export type StorageColumnInputTypes = {
       readonly organizationId: CodecTypes['pg/int4@1']['input'];
       readonly status: 'ACTIVE' | 'INACTIVE' | 'BLOCKED';
       readonly type: 'STORE' | 'WAREHOUSE' | 'OFFICE';
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
     };
     readonly category: {
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
@@ -509,6 +532,7 @@ export type StorageColumnInputTypes = {
       readonly organizationId: CodecTypes['pg/int4@1']['input'];
       readonly slug: CodecTypes['pg/text@1']['input'];
       readonly status: 'DRAFT' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
     };
     readonly organization: {
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
@@ -517,6 +541,7 @@ export type StorageColumnInputTypes = {
       readonly slug: CodecTypes['pg/text@1']['input'];
       readonly status: 'ACTIVE' | 'INACTIVE' | 'BLOCKED';
       readonly type: 'BUSINESS' | 'BRAND';
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
     };
     readonly permission: {
       readonly code: CodecTypes['pg/text@1']['input'];
@@ -534,6 +559,7 @@ export type StorageColumnInputTypes = {
       readonly organizationId: CodecTypes['pg/int4@1']['input'];
       readonly slug: CodecTypes['pg/text@1']['input'];
       readonly status: 'DRAFT' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
     };
     readonly productVariant: {
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
@@ -543,6 +569,7 @@ export type StorageColumnInputTypes = {
       readonly productId: CodecTypes['pg/int4@1']['input'];
       readonly sku: CodecTypes['pg/text@1']['input'];
       readonly status: 'DRAFT' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
     };
     readonly role: {
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
@@ -551,6 +578,7 @@ export type StorageColumnInputTypes = {
       readonly name: CodecTypes['pg/text@1']['input'];
       readonly organizationId: CodecTypes['pg/int4@1']['input'];
       readonly status: 'ACTIVE' | 'INACTIVE' | 'BLOCKED';
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
     };
     readonly rolePermission: {
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
@@ -566,6 +594,7 @@ export type StorageColumnInputTypes = {
       readonly organizationId: CodecTypes['pg/int4@1']['input'];
       readonly phone: CodecTypes['pg/text@1']['input'];
       readonly status: 'ACTIVE' | 'INACTIVE' | 'BLOCKED';
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
     };
     readonly userRole: {
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
@@ -584,6 +613,7 @@ export namespace Models {
     type: 'BUSINESS' | 'BRAND';
     status: 'ACTIVE' | 'INACTIVE' | 'BLOCKED';
     createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
+    updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     branches: public_Branch[];
     categories: public_Category[];
     products: public_Product[];
@@ -599,6 +629,7 @@ export namespace Models {
     type: 'STORE' | 'WAREHOUSE' | 'OFFICE';
     status: 'ACTIVE' | 'INACTIVE' | 'BLOCKED';
     createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
+    updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     organization: public_Organization;
     readonly [RelationKeys]?: 'organization';
   };
@@ -610,6 +641,7 @@ export namespace Models {
     name: CodecTypes['pg/text@1']['output'] | null;
     status: 'ACTIVE' | 'INACTIVE' | 'BLOCKED';
     createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
+    updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     organization: public_Organization;
     userRoles: public_UserRole[];
     readonly [RelationKeys]?: 'organization' | 'userRoles';
@@ -621,6 +653,7 @@ export namespace Models {
     description: CodecTypes['pg/text@1']['output'] | null;
     status: 'ACTIVE' | 'INACTIVE' | 'BLOCKED';
     createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
+    updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     organization: public_Organization;
     permissions: public_RolePermission[];
     userRoles: public_UserRole[];
@@ -660,6 +693,7 @@ export namespace Models {
     slug: CodecTypes['pg/text@1']['output'];
     status: 'DRAFT' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
     createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
+    updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     organization: public_Organization;
     products: public_Product[];
     readonly [RelationKeys]?: 'organization' | 'products';
@@ -673,6 +707,7 @@ export namespace Models {
     description: CodecTypes['pg/text@1']['output'] | null;
     status: 'DRAFT' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
     createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
+    updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     category: public_Category | null;
     organization: public_Organization;
     variants: public_ProductVariant[];
@@ -686,6 +721,7 @@ export namespace Models {
     price: CodecTypes['pg/numeric@1']['output'];
     status: 'DRAFT' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
     createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
+    updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     product: public_Product;
     readonly [RelationKeys]?: 'product';
   };
@@ -774,6 +810,11 @@ type ContractBase = Omit<
                   readonly nullable: false;
                   readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
                 };
+                readonly updatedAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                  readonly nullable: false;
+                };
               };
               primaryKey: { readonly columns: readonly ['id'] };
               uniques: readonly [{ readonly columns: readonly ['organizationId', 'code'] }];
@@ -840,6 +881,11 @@ type ContractBase = Omit<
                   readonly codecId: 'pg/timestamptz-string@1';
                   readonly nullable: false;
                   readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+                readonly updatedAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                  readonly nullable: false;
                 };
               };
               primaryKey: { readonly columns: readonly ['id'] };
@@ -911,6 +957,11 @@ type ContractBase = Omit<
                   readonly codecId: 'pg/timestamptz-string@1';
                   readonly nullable: false;
                   readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+                readonly updatedAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                  readonly nullable: false;
                 };
               };
               primaryKey: { readonly columns: readonly ['id'] };
@@ -1007,6 +1058,11 @@ type ContractBase = Omit<
                   readonly nullable: false;
                   readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
                 };
+                readonly updatedAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                  readonly nullable: false;
+                };
               };
               primaryKey: { readonly columns: readonly ['id'] };
               uniques: readonly [{ readonly columns: readonly ['organizationId', 'slug'] }];
@@ -1097,6 +1153,11 @@ type ContractBase = Omit<
                   readonly nullable: false;
                   readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
                 };
+                readonly updatedAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                  readonly nullable: false;
+                };
               };
               primaryKey: { readonly columns: readonly ['id'] };
               uniques: readonly [{ readonly columns: readonly ['sku'] }];
@@ -1163,6 +1224,11 @@ type ContractBase = Omit<
                   readonly codecId: 'pg/timestamptz-string@1';
                   readonly nullable: false;
                   readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+                readonly updatedAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                  readonly nullable: false;
                 };
               };
               primaryKey: { readonly columns: readonly ['id'] };
@@ -1306,6 +1372,11 @@ type ContractBase = Omit<
                   readonly codecId: 'pg/timestamptz-string@1';
                   readonly nullable: false;
                   readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+                readonly updatedAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                  readonly nullable: false;
                 };
               };
               primaryKey: { readonly columns: readonly ['id'] };
@@ -1496,6 +1567,13 @@ type ContractBase = Omit<
                   readonly codecId: 'pg/timestamptz-string@1';
                 };
               };
+              readonly updatedAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                };
+              };
             };
             readonly relations: {
               readonly organization: {
@@ -1522,6 +1600,7 @@ type ContractBase = Omit<
                 readonly type: { readonly column: 'type' };
                 readonly status: { readonly column: 'status' };
                 readonly createdAt: { readonly column: 'createdAt' };
+                readonly updatedAt: { readonly column: 'updatedAt' };
               };
             };
           };
@@ -1548,6 +1627,13 @@ type ContractBase = Omit<
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
               readonly createdAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                };
+              };
+              readonly updatedAt: {
                 readonly nullable: false;
                 readonly type: {
                   readonly kind: 'scalar';
@@ -1590,6 +1676,7 @@ type ContractBase = Omit<
                 readonly slug: { readonly column: 'slug' };
                 readonly status: { readonly column: 'status' };
                 readonly createdAt: { readonly column: 'createdAt' };
+                readonly updatedAt: { readonly column: 'updatedAt' };
               };
             };
           };
@@ -1616,6 +1703,13 @@ type ContractBase = Omit<
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
               readonly createdAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                };
+              };
+              readonly updatedAt: {
                 readonly nullable: false;
                 readonly type: {
                   readonly kind: 'scalar';
@@ -1684,6 +1778,7 @@ type ContractBase = Omit<
                 readonly type: { readonly column: 'type' };
                 readonly status: { readonly column: 'status' };
                 readonly createdAt: { readonly column: 'createdAt' };
+                readonly updatedAt: { readonly column: 'updatedAt' };
               };
             };
           };
@@ -1775,6 +1870,13 @@ type ContractBase = Omit<
                   readonly codecId: 'pg/timestamptz-string@1';
                 };
               };
+              readonly updatedAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                };
+              };
             };
             readonly relations: {
               readonly category: {
@@ -1825,6 +1927,7 @@ type ContractBase = Omit<
                 readonly description: { readonly column: 'description' };
                 readonly status: { readonly column: 'status' };
                 readonly createdAt: { readonly column: 'createdAt' };
+                readonly updatedAt: { readonly column: 'updatedAt' };
               };
             };
           };
@@ -1861,6 +1964,13 @@ type ContractBase = Omit<
                   readonly codecId: 'pg/timestamptz-string@1';
                 };
               };
+              readonly updatedAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                };
+              };
             };
             readonly relations: {
               readonly product: {
@@ -1887,6 +1997,7 @@ type ContractBase = Omit<
                 readonly price: { readonly column: 'price' };
                 readonly status: { readonly column: 'status' };
                 readonly createdAt: { readonly column: 'createdAt' };
+                readonly updatedAt: { readonly column: 'updatedAt' };
               };
             };
           };
@@ -1913,6 +2024,13 @@ type ContractBase = Omit<
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
               readonly createdAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                };
+              };
+              readonly updatedAt: {
                 readonly nullable: false;
                 readonly type: {
                   readonly kind: 'scalar';
@@ -1966,6 +2084,7 @@ type ContractBase = Omit<
                 readonly description: { readonly column: 'description' };
                 readonly status: { readonly column: 'status' };
                 readonly createdAt: { readonly column: 'createdAt' };
+                readonly updatedAt: { readonly column: 'updatedAt' };
               };
             };
           };
@@ -2058,6 +2177,13 @@ type ContractBase = Omit<
                   readonly codecId: 'pg/timestamptz-string@1';
                 };
               };
+              readonly updatedAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                };
+              };
             };
             readonly relations: {
               readonly organization: {
@@ -2095,6 +2221,7 @@ type ContractBase = Omit<
                 readonly name: { readonly column: 'name' };
                 readonly status: { readonly column: 'status' };
                 readonly createdAt: { readonly column: 'createdAt' };
+                readonly updatedAt: { readonly column: 'updatedAt' };
               };
             };
           };
@@ -2208,6 +2335,76 @@ type ContractBase = Omit<
     };
   };
   readonly extensions: {};
+  readonly execution: {
+    readonly executionHash: ExecutionHash;
+    readonly mutations: {
+      readonly defaults: readonly [
+        {
+          readonly ref: {
+            readonly namespace: 'public';
+            readonly table: 'branch';
+            readonly column: 'updatedAt';
+          };
+          readonly onCreate: { readonly kind: 'generator'; readonly id: 'timestampNow' };
+          readonly onUpdate: { readonly kind: 'generator'; readonly id: 'timestampNow' };
+        },
+        {
+          readonly ref: {
+            readonly namespace: 'public';
+            readonly table: 'category';
+            readonly column: 'updatedAt';
+          };
+          readonly onCreate: { readonly kind: 'generator'; readonly id: 'timestampNow' };
+          readonly onUpdate: { readonly kind: 'generator'; readonly id: 'timestampNow' };
+        },
+        {
+          readonly ref: {
+            readonly namespace: 'public';
+            readonly table: 'organization';
+            readonly column: 'updatedAt';
+          };
+          readonly onCreate: { readonly kind: 'generator'; readonly id: 'timestampNow' };
+          readonly onUpdate: { readonly kind: 'generator'; readonly id: 'timestampNow' };
+        },
+        {
+          readonly ref: {
+            readonly namespace: 'public';
+            readonly table: 'product';
+            readonly column: 'updatedAt';
+          };
+          readonly onCreate: { readonly kind: 'generator'; readonly id: 'timestampNow' };
+          readonly onUpdate: { readonly kind: 'generator'; readonly id: 'timestampNow' };
+        },
+        {
+          readonly ref: {
+            readonly namespace: 'public';
+            readonly table: 'productVariant';
+            readonly column: 'updatedAt';
+          };
+          readonly onCreate: { readonly kind: 'generator'; readonly id: 'timestampNow' };
+          readonly onUpdate: { readonly kind: 'generator'; readonly id: 'timestampNow' };
+        },
+        {
+          readonly ref: {
+            readonly namespace: 'public';
+            readonly table: 'role';
+            readonly column: 'updatedAt';
+          };
+          readonly onCreate: { readonly kind: 'generator'; readonly id: 'timestampNow' };
+          readonly onUpdate: { readonly kind: 'generator'; readonly id: 'timestampNow' };
+        },
+        {
+          readonly ref: {
+            readonly namespace: 'public';
+            readonly table: 'user';
+            readonly column: 'updatedAt';
+          };
+          readonly onCreate: { readonly kind: 'generator'; readonly id: 'timestampNow' };
+          readonly onUpdate: { readonly kind: 'generator'; readonly id: 'timestampNow' };
+        },
+      ];
+    };
+  };
   readonly meta: {};
 
   readonly profileHash: ProfileHash;

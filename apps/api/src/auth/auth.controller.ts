@@ -12,11 +12,13 @@ import {
   IsString,
 } from 'class-validator';
 
-import { AuthService } from './auth.service.js';
-import { JwtAuthGuard } from './jwt-auth.guard.js';
-import type { AuthenticatedRequest } from './jwt-auth.guard.js';
-import { OtpService } from '../otp/otp.service.js';
 import { VerifyOtpDto } from '../otp/otp.dto.js';
+import { OtpService } from '../otp/otp.service.js';
+import { RequirePermission } from '../rbac/permission.decorator.js';
+import { PermissionGuard } from '../rbac/permission.guard.js';
+import { AuthService } from './auth.service.js';
+import type { AuthenticatedRequest } from './jwt-auth.guard.js';
+import { JwtAuthGuard } from './jwt-auth.guard.js';
 
 class RefreshDto {
   @IsString()
@@ -107,7 +109,7 @@ export class AuthController {
     };
   }
 
-  @Get('me')
+   @Get('me')
   @UseGuards(JwtAuthGuard)
   getMe(
     @Req() request: AuthenticatedRequest,
@@ -116,4 +118,16 @@ export class AuthController {
       user: request.authUser,
     };
   }
+
+  @Get('rbac-test')
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @RequirePermission('user.read')
+  rbacTest(@Req() request: AuthenticatedRequest) {
+    return {
+      message: 'RBAC permission granted',
+      userId: request.authUser?.id,
+      organizationId: request.authUser?.organizationId,
+    };
+  }
+
 }
