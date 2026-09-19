@@ -9,9 +9,7 @@ import type { CreateOrganizationDto } from './organization.dto.js';
 
 @Injectable()
 export class OrganizationService {
-  async create(
-    dto: CreateOrganizationDto,
-  ) {
+  async create(dto: CreateOrganizationDto) {
     const existing =
       await db.orm.public.Organization
         .where({ slug: dto.slug })
@@ -29,10 +27,21 @@ export class OrganizationService {
     });
   }
 
-  async getById(id: number) {
+  async getById(
+    id: number,
+    organizationId: number,
+  ) {
+    if (id !== organizationId) {
+      throw new NotFoundException(
+        'Organization not found',
+      );
+    }
+
     const organization =
       await db.orm.public.Organization
-        .where({ id })
+        .where({
+          id: organizationId,
+        })
         .first();
 
     if (!organization) {
