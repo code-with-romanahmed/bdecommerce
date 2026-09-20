@@ -6,6 +6,8 @@ import { AppController } from './app.controller.js';
 
 import { AppService } from './app.service.js';
 
+import { ProductModule } from './product/product.module.js';
+
 import { AuthModule } from './auth/auth.module.js';
 
 import { NotificationsModule } from './notifications/notifications.module.js';
@@ -35,7 +37,7 @@ import { RedisModule } from './redis/redis.module.js';
     AuthModule,
 
     OrganizationModule,
-
+ProductModule,
   ],
 
   controllers: [AppController],
