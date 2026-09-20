@@ -12,6 +12,10 @@
       "model": "Category",
       "namespace": "public"
     },
+    "inventoryStock": {
+      "model": "InventoryStock",
+      "namespace": "public"
+    },
     "organization": {
       "model": "Organization",
       "namespace": "public"
@@ -34,6 +38,10 @@
     },
     "rolePermission": {
       "model": "RolePermission",
+      "namespace": "public"
+    },
+    "stockMovement": {
+      "model": "StockMovement",
       "namespace": "public"
     },
     "user": {
@@ -116,6 +124,39 @@
                 "value": "BLOCKED"
               }
             ]
+          },
+          "StockMovementType": {
+            "codecId": "pg/text@1",
+            "members": [
+              {
+                "name": "IN",
+                "value": "IN"
+              },
+              {
+                "name": "OUT",
+                "value": "OUT"
+              },
+              {
+                "name": "ADJUSTMENT",
+                "value": "ADJUSTMENT"
+              },
+              {
+                "name": "TRANSFER_IN",
+                "value": "TRANSFER_IN"
+              },
+              {
+                "name": "TRANSFER_OUT",
+                "value": "TRANSFER_OUT"
+              },
+              {
+                "name": "RETURN_IN",
+                "value": "RETURN_IN"
+              },
+              {
+                "name": "RETURN_OUT",
+                "value": "RETURN_OUT"
+              }
+            ]
           }
         },
         "models": {
@@ -184,6 +225,21 @@
               }
             },
             "relations": {
+              "inventoryStocks": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "branchId"
+                  ]
+                },
+                "to": {
+                  "model": "InventoryStock",
+                  "namespace": "public"
+                }
+              },
               "organization": {
                 "cardinality": "N:1",
                 "nullable": false,
@@ -197,6 +253,21 @@
                 },
                 "to": {
                   "model": "Organization",
+                  "namespace": "public"
+                }
+              },
+              "stockMovements": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "branchId"
+                  ]
+                },
+                "to": {
+                  "model": "StockMovement",
                   "namespace": "public"
                 }
               }
@@ -336,6 +407,135 @@
               },
               "namespaceId": "public",
               "table": "category"
+            }
+          },
+          "InventoryStock": {
+            "fields": {
+              "branchId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "organizationId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "productVariantId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "quantity": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "reservedQuantity": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "branch": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "branchId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Branch",
+                  "namespace": "public"
+                }
+              },
+              "movements": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "inventoryStockId"
+                  ]
+                },
+                "to": {
+                  "model": "StockMovement",
+                  "namespace": "public"
+                }
+              },
+              "productVariant": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "productVariantId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "ProductVariant",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "branchId": {
+                  "column": "branchId"
+                },
+                "createdAt": {
+                  "column": "createdAt"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "organizationId": {
+                  "column": "organizationId"
+                },
+                "productVariantId": {
+                  "column": "productVariantId"
+                },
+                "quantity": {
+                  "column": "quantity"
+                },
+                "reservedQuantity": {
+                  "column": "reservedQuantity"
+                }
+              },
+              "namespaceId": "public",
+              "table": "inventoryStock"
             }
           },
           "Organization": {
@@ -778,6 +978,21 @@
               }
             },
             "relations": {
+              "inventoryStocks": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "productVariantId"
+                  ]
+                },
+                "to": {
+                  "model": "InventoryStock",
+                  "namespace": "public"
+                }
+              },
               "product": {
                 "cardinality": "N:1",
                 "nullable": false,
@@ -791,6 +1006,21 @@
                 },
                 "to": {
                   "model": "Product",
+                  "namespace": "public"
+                }
+              },
+              "stockMovements": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "productVariantId"
+                  ]
+                },
+                "to": {
+                  "model": "StockMovement",
                   "namespace": "public"
                 }
               }
@@ -1029,6 +1259,182 @@
               },
               "namespaceId": "public",
               "table": "rolePermission"
+            }
+          },
+          "StockMovement": {
+            "fields": {
+              "branchId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "inventoryStockId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "note": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "organizationId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "productVariantId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "quantity": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "referenceId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "referenceType": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "type": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                },
+                "valueSet": {
+                  "entityKind": "enum",
+                  "entityName": "StockMovementType",
+                  "namespaceId": "public",
+                  "plane": "domain"
+                }
+              }
+            },
+            "relations": {
+              "branch": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "branchId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Branch",
+                  "namespace": "public"
+                }
+              },
+              "inventoryStock": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "inventoryStockId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "InventoryStock",
+                  "namespace": "public"
+                }
+              },
+              "productVariant": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "productVariantId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "ProductVariant",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "branchId": {
+                  "column": "branchId"
+                },
+                "createdAt": {
+                  "column": "createdAt"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "inventoryStockId": {
+                  "column": "inventoryStockId"
+                },
+                "note": {
+                  "column": "note"
+                },
+                "organizationId": {
+                  "column": "organizationId"
+                },
+                "productVariantId": {
+                  "column": "productVariantId"
+                },
+                "quantity": {
+                  "column": "quantity"
+                },
+                "referenceId": {
+                  "column": "referenceId"
+                },
+                "referenceType": {
+                  "column": "referenceType"
+                },
+                "type": {
+                  "column": "type"
+                }
+              },
+              "namespaceId": "public",
+              "table": "stockMovement"
             }
           },
           "User": {
@@ -1459,6 +1865,134 @@
                   "columns": [
                     "organizationId",
                     "slug"
+                  ]
+                }
+              ]
+            },
+            "inventoryStock": {
+              "columns": {
+                "branchId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "createdAt": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                },
+                "id": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "expression": "autoincrement()",
+                    "kind": "function"
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "organizationId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "productVariantId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "quantity": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": 0
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "reservedQuantity": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": 0
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [
+                {
+                  "source": {
+                    "columns": [
+                      "branchId"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "inventoryStock"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "branch"
+                  }
+                },
+                {
+                  "source": {
+                    "columns": [
+                      "productVariantId"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "inventoryStock"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "productVariant"
+                  }
+                }
+              ],
+              "indexes": [
+                {
+                  "columns": [
+                    "branchId"
+                  ],
+                  "name": "inventoryStock_branchId_idx_d04da5bb",
+                  "prefix": "inventoryStock_branchId_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "organizationId"
+                  ],
+                  "name": "inventoryStock_organizationId_idx_2e17ef41",
+                  "prefix": "inventoryStock_organizationId_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "productVariantId"
+                  ],
+                  "name": "inventoryStock_productVariantId_idx_ef742efe",
+                  "prefix": "inventoryStock_productVariantId_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": [
+                {
+                  "columns": [
+                    "branchId",
+                    "productVariantId"
                   ]
                 }
               ]
@@ -2037,6 +2571,176 @@
                 }
               ]
             },
+            "stockMovement": {
+              "checks": [
+                {
+                  "expression": "\"type\" IN ('IN', 'OUT', 'ADJUSTMENT', 'TRANSFER_IN', 'TRANSFER_OUT', 'RETURN_IN', 'RETURN_OUT')",
+                  "name": "stockMovement_type_check_5be187cf",
+                  "prefix": "stockMovement_type_check"
+                }
+              ],
+              "columns": {
+                "branchId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "createdAt": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                },
+                "id": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "expression": "autoincrement()",
+                    "kind": "function"
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "inventoryStockId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "note": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "organizationId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "productVariantId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "quantity": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "referenceId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": true
+                },
+                "referenceType": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "type": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false,
+                  "valueSet": {
+                    "entityKind": "valueSet",
+                    "entityName": "StockMovementType",
+                    "namespaceId": "public",
+                    "plane": "storage"
+                  }
+                }
+              },
+              "foreignKeys": [
+                {
+                  "source": {
+                    "columns": [
+                      "inventoryStockId"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "stockMovement"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "inventoryStock"
+                  }
+                },
+                {
+                  "source": {
+                    "columns": [
+                      "branchId"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "stockMovement"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "branch"
+                  }
+                },
+                {
+                  "source": {
+                    "columns": [
+                      "productVariantId"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "stockMovement"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "productVariant"
+                  }
+                }
+              ],
+              "indexes": [
+                {
+                  "columns": [
+                    "branchId"
+                  ],
+                  "name": "stockMovement_branchId_idx_d04da5bb",
+                  "prefix": "stockMovement_branchId_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "inventoryStockId"
+                  ],
+                  "name": "stockMovement_inventoryStockId_idx_236e61b4",
+                  "prefix": "stockMovement_inventoryStockId_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "organizationId"
+                  ],
+                  "name": "stockMovement_organizationId_idx_2e17ef41",
+                  "prefix": "stockMovement_organizationId_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "productVariantId"
+                  ],
+                  "name": "stockMovement_productVariantId_idx_ef742efe",
+                  "prefix": "stockMovement_productVariantId_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": []
+            },
             "user": {
               "checks": [
                 {
@@ -2276,6 +2980,18 @@
                 "INACTIVE",
                 "BLOCKED"
               ]
+            },
+            "StockMovementType": {
+              "kind": "valueSet",
+              "values": [
+                "IN",
+                "OUT",
+                "ADJUSTMENT",
+                "TRANSFER_IN",
+                "TRANSFER_OUT",
+                "RETURN_IN",
+                "RETURN_OUT"
+              ]
             }
           }
         },
@@ -2283,7 +2999,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "aa93a8fc16ca62fa8cb8674268ececb25f1bfad1b2c3dbe3354769059f369e15"
+    "storageHash": "bed8af113e71a0c2e4dab6c8ddf7918376b1426df9b0790e0706b7d34c42c808"
   },
   "capabilities": {
     "postgres": {

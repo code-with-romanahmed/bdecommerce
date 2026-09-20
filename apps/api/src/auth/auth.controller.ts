@@ -4,6 +4,7 @@ import {
   Get,
   Post,
   Req,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -68,17 +69,23 @@ export class AuthController {
       body.otp,
     );
 
-    const user =
-      await this.authService.findOrCreateUser(
-        body.phone,
-      );
+  const user =
+  await this.authService.findUserByPhone(
+    body.phone,
+  );
 
-    const session =
-      await this.authService.createSession(
-        user,
-        body.deviceId,
-        body.deviceName,
-      );
+if (!user) {
+  throw new UnauthorizedException(
+    'User account is not provisioned',
+  );
+}
+
+   const session =
+  await this.authService.createSession(
+    user,
+    body.deviceId,
+    body.deviceName,
+  );
 
     return {
       message: 'Login successful',

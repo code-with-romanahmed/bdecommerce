@@ -1,4 +1,5 @@
 // use prisma-8
+
 enum OrganizationType {
   BUSINESS
   BRAND
@@ -21,6 +22,16 @@ enum ProductStatus {
   ACTIVE
   INACTIVE
   ARCHIVED
+}
+
+enum StockMovementType {
+  IN
+  OUT
+  ADJUSTMENT
+  TRANSFER_IN
+  TRANSFER_OUT
+  RETURN_IN
+  RETURN_OUT
 }
 
 model Organization {
@@ -47,7 +58,9 @@ model Branch {
   status         RecordStatus      @default(ACTIVE)
   createdAt      TimestamptzString @default(now())
 
-  organization   Organization      @relation(fields:[organizationId], references:[id])
+  organization    Organization      @relation(fields: [organizationId], references: [id])
+  inventoryStocks InventoryStock[]
+  stockMovements  StockMovement[]
 
   @@unique([organizationId, code])
   @@index([organizationId])
@@ -62,7 +75,7 @@ model User {
   status         RecordStatus      @default(ACTIVE)
   createdAt      TimestamptzString @default(now())
 
-  organization   Organization      @relation(fields:[organizationId], references:[id])
+  organization   Organization      @relation(fields: [organizationId], references: [id])
   userRoles      UserRole[]
 
   @@index([organizationId])
@@ -76,7 +89,7 @@ model Role {
   status         RecordStatus      @default(ACTIVE)
   createdAt      TimestamptzString @default(now())
 
-  organization   Organization      @relation(fields:[organizationId], references:[id])
+  organization   Organization      @relation(fields: [organizationId], references: [id])
   userRoles      UserRole[]
   permissions    RolePermission[]
 
@@ -100,8 +113,8 @@ model UserRole {
   roleId    Int
   createdAt TimestamptzString @default(now())
 
-  user      User              @relation(fields:[userId], references:[id])
-  role      Role              @relation(fields:[roleId], references:[id])
+  user      User              @relation(fields: [userId], references: [id])
+  role      Role              @relation(fields: [roleId], references: [id])
 
   @@unique([userId, roleId])
   @@index([userId])
@@ -114,8 +127,8 @@ model RolePermission {
   permissionId Int
   createdAt    TimestamptzString @default(now())
 
-  role         Role              @relation(fields:[roleId], references:[id])
-  permission   Permission        @relation(fields:[permissionId], references:[id])
+  role         Role              @relation(fields: [roleId], references: [id])
+  permission   Permission        @relation(fields: [permissionId], references: [id])
 
   @@unique([roleId, permissionId])
   @@index([roleId])
@@ -130,7 +143,7 @@ model Category {
   status         ProductStatus     @default(ACTIVE)
   createdAt      TimestamptzString @default(now())
 
-  organization   Organization      @relation(fields:[organizationId], references:[id])
+  organization   Organization      @relation(fields: [organizationId], references: [id])
   products       Product[]
 
   @@unique([organizationId, slug])
@@ -147,8 +160,8 @@ model Product {
   status         ProductStatus     @default(DRAFT)
   createdAt      TimestamptzString @default(now())
 
-  organization   Organization      @relation(fields:[organizationId], references:[id])
-  category       Category?         @relation(fields:[categoryId], references:[id])
+  organization   Organization      @relation(fields: [organizationId], references: [id])
+  category       Category?         @relation(fields: [categoryId], references: [id])
   variants       ProductVariant[]
 
   @@unique([organizationId, slug])
@@ -157,16 +170,60 @@ model Product {
 }
 
 model ProductVariant {
-  id        Int               @id @default(autoincrement())
-  productId Int
-  sku       String
-  name      String?
-  price     Decimal
-  status    ProductStatus     @default(ACTIVE)
-  createdAt TimestamptzString @default(now())
+  id              Int               @id @default(autoincrement())
+  productId       Int
+  sku             String
+  name            String?
+  price           Decimal
+  status          ProductStatus     @default(ACTIVE)
+  createdAt       TimestamptzString @default(now())
 
-  product   Product           @relation(fields:[productId], references:[id])
+  product         Product           @relation(fields: [productId], references: [id])
+  inventoryStocks InventoryStock[]
+  stockMovements  StockMovement[]
 
   @@unique([sku])
   @@index([productId])
+}
+
+model InventoryStock {
+  id               Int               @id @default(autoincrement())
+  organizationId   Int
+  branchId         Int
+  productVariantId Int
+  quantity         Int               @default(0)
+  reservedQuantity Int               @default(0)
+  createdAt        TimestamptzString @default(now())
+
+  branch           Branch            @relation(fields: [branchId], references: [id])
+  productVariant   ProductVariant    @relation(fields: [productVariantId], references: [id])
+  movements        StockMovement[]
+
+  @@unique([branchId, productVariantId])
+  @@index([organizationId])
+  @@index([branchId])
+  @@index([productVariantId])
+}
+
+model StockMovement {
+  id               Int               @id @default(autoincrement())
+  organizationId   Int
+  branchId         Int
+  productVariantId Int
+  inventoryStockId Int
+  type             StockMovementType
+  quantity         Int
+  referenceType    String?
+  referenceId      Int?
+  note             String?
+  createdAt        TimestamptzString @default(now())
+
+  inventoryStock   InventoryStock    @relation(fields: [inventoryStockId], references: [id])
+  branch           Branch            @relation(fields: [branchId], references: [id])
+  productVariant   ProductVariant    @relation(fields: [productVariantId], references: [id])
+
+  @@index([organizationId])
+  @@index([branchId])
+  @@index([productVariantId])
+  @@index([inventoryStockId])
 }

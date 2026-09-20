@@ -20,44 +20,26 @@ export class AuthService {
     private readonly authSessionService: AuthSessionService,
   ) {}
 
-  async findOrCreateUser(
-    phone: string,
-  ): Promise<AuthUser> {
-    const existingUser =
-      await db.orm.public.User
-        .where({ phone })
-        .first();
+async findUserByPhone(
+  phone: string,
+): Promise<AuthUser | null> {
+  const user =
+    await db.orm.public.User
+      .where({ phone })
+      .first();
 
-    if (existingUser) {
-      return {
-        id: existingUser.id,
-        organizationId: existingUser.organizationId,
-        phone: existingUser.phone,
-        email: existingUser.email,
-        name: existingUser.name,
-      };
-    }
-
-    const organization =
-      await db.orm.public.Organization.create({
-        name: `Business ${phone.slice(-4)}`,
-        slug: `business-${phone.slice(-10)}`,
-      });
-
-    const user =
-      await db.orm.public.User.create({
-        organizationId: organization.id,
-        phone,
-      });
-
-    return {
-      id: user.id,
-      organizationId: user.organizationId,
-      phone: user.phone,
-      email: user.email,
-      name: user.name,
-    };
+  if (!user) {
+    return null;
   }
+
+  return {
+    id: user.id,
+    organizationId: user.organizationId,
+    phone: user.phone,
+    email: user.email,
+    name: user.name,
+  };
+}
 
   async issueAccessToken(
     user: AuthUser,
