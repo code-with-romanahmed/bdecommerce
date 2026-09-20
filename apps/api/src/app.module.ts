@@ -16,6 +16,7 @@ import { OrganizationModule } from './organization/organization.module.js';
 
 import { OtpModule } from './otp/otp.module.js';
 
+import { InventoryModule } from './inventory/inventory.module.js';
 import { RedisModule } from './redis/redis.module.js';
 
 @Module({
@@ -33,7 +34,7 @@ import { RedisModule } from './redis/redis.module.js';
     NotificationsModule,
 
     OtpModule,
-
+InventoryModule,
     AuthModule,
 
     OrganizationModule,
