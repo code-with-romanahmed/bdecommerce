@@ -214,7 +214,114 @@ export class OrderService {
 
     return this.getOrder(organizationId, orderId);
   }
+  async confirmOrder(organizationId: number, orderId: number) {
+    const order = await db.orm.public.Order
+      .where({ id: orderId, organizationId })
+      .first();
 
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    if (order.status !== 'PENDING') {
+      throw new BadRequestException(
+        `Only PENDING orders can be confirmed (current: ${order.status})`,
+      );
+    }
+
+    const updated = await db.orm.public.Order
+      .where({
+        id: order.id,
+        organizationId,
+        status: 'PENDING',
+      })
+      .update({ status: 'CONFIRMED' });
+
+    if (!updated) {
+      throw new ConflictException('Order status changed, please retry');
+    }
+
+    return this.getOrder(organizationId, order.id);
+  }
+
+  async cancelOrder(organizationId: number, orderId: number) {
+    const order = await db.orm.public.Order
+      .where({ id: orderId, organizationId })
+      .first();
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    if (order.status !== 'PENDING' && order.status !== 'CONFIRMED') {
+      throw new BadRequestException(
+        `Order cannot be cancelled (current: ${order.status})`,
+      );
+    }
+
+    await db.transaction(async (tx) => {
+      const updated = await tx.orm.public.Order
+        .where({
+          id: order.id,
+          organizationId,
+          status: order.status,
+        })
+        .update({ status: 'CANCELLED' });
+
+      if (!updated) {
+        throw new ConflictException(
+          'Order status changed, please retry',
+        );
+      }
+
+      const reserves = await tx.orm.public.StockMovement
+        .where({
+          organizationId,
+          referenceType: 'ORDER',
+          referenceId: order.id,
+        })
+        .all();
+
+      for (const r of reserves) {
+        const stock = await tx.orm.public.InventoryStock
+          .where({ id: r.inventoryStockId })
+          .first();
+
+        if (!stock) {
+          throw new NotFoundException('Inventory stock not found');
+        }
+
+        const released = await tx.orm.public.InventoryStock
+          .where({ id: stock.id })
+          .update({
+            reservedQuantity: Math.max(
+              0,
+              stock.reservedQuantity - r.quantity,
+            ),
+          });
+
+        if (!released) {
+          throw new ConflictException(
+            'Failed to release reserved stock',
+          );
+        }
+
+        await tx.orm.public.StockMovement.create({
+          organizationId,
+          branchId: r.branchId,
+          productVariantId: r.productVariantId,
+          inventoryStockId: stock.id,
+          type: 'ADJUSTMENT',
+          quantity: -r.quantity,
+          referenceType: 'ORDER_CANCEL',
+          referenceId: order.id,
+          note: `Released for ${order.orderNumber}`,
+        });
+      }
+    });
+
+    return this.getOrder(organizationId, order.id);
+  }
   async getOrder(organizationId: number, orderId: number) {
     const order = await db.orm.public.Order
       .where({ id: orderId, organizationId })

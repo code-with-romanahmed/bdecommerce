@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   Req,
   UseGuards,
@@ -34,6 +35,31 @@ export class OrderController {
     );
   }
 
+    @Patch(':id/confirm')
+  @RequirePermission('order.update')
+  confirmOrder(
+    @Req() request: AuthenticatedRequest,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.orderService.confirmOrder(
+      request.authUser!.organizationId,
+      id,
+    );
+  }
+
+  @Patch(':id/cancel')
+  @RequirePermission('order.update')
+  cancelOrder(
+    @Req() request: AuthenticatedRequest,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.orderService.cancelOrder(
+      request.authUser!.organizationId,
+      id,
+    );
+  }
+
+
   @Get(':id')
   @RequirePermission('order.read')
   getOrder(
@@ -52,5 +78,7 @@ export class OrderController {
     return this.orderService.listOrders(
       request.authUser!.organizationId,
     );
+    
   }
+  
 }
