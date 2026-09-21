@@ -25,8 +25,7 @@ export class OrderService {
     const prefix = `ORD-${datePart}-`;
 
     // NOTE: fetches every order to compute today's sequence. Fine at
-    // current data volume; replace with a dedicated counter/sequence
-    // table if order volume grows large enough for this to matter.
+    // current data volume; replace with a counter/sequence table later.
     const allOrders = await db.orm.public.Order.all();
     const todaysCount = allOrders.filter((o) =>
       o.orderNumber.startsWith(prefix),
@@ -47,40 +46,23 @@ export class OrderService {
     const customer = await db.orm.public.Customer
       .where({ id: dto.customerId, organizationId })
       .first();
-
-    if (!customer) {
-      throw new NotFoundException('Customer not found');
-    }
+    if (!customer) throw new NotFoundException('Customer not found');
 
     const address = await db.orm.public.CustomerAddress
       .where({ id: dto.addressId, customerId: customer.id })
       .first();
-
-    if (!address) {
-      throw new NotFoundException('Address not found');
-    }
+    if (!address) throw new NotFoundException('Address not found');
 
     const cart = await db.orm.public.Cart
-      .where({
-        organizationId,
-        customerId: customer.id,
-        status: 'ACTIVE',
-      })
+      .where({ organizationId, customerId: customer.id, status: 'ACTIVE' })
       .first();
-
-    if (!cart) {
-      throw new NotFoundException('Active cart not found');
-    }
+    if (!cart) throw new NotFoundException('Active cart not found');
 
     const cartItems = await db.orm.public.CartItem
       .where({ cartId: cart.id })
       .all();
+    if (cartItems.length === 0) throw new BadRequestException('Cart is empty');
 
-    if (cartItems.length === 0) {
-      throw new BadRequestException('Cart is empty');
-    }
-
-    // Snapshot price + product info for each line, and compute subtotal.
     const lines: {
       productVariantId: number;
       productName: string;
@@ -95,7 +77,6 @@ export class OrderService {
       const variant = await db.orm.public.ProductVariant
         .where({ id: item.productVariantId })
         .first();
-
       if (!variant) {
         throw new NotFoundException(
           `Product variant ${item.productVariantId} not found`,
@@ -105,10 +86,7 @@ export class OrderService {
       const product = await db.orm.public.Product
         .where({ id: variant.productId, organizationId })
         .first();
-
-      if (!product) {
-        throw new NotFoundException('Product not found');
-      }
+      if (!product) throw new NotFoundException('Product not found');
 
       const unitPrice = Number(variant.price);
       const lineTotal = unitPrice * item.quantity;
@@ -124,60 +102,117 @@ export class OrderService {
       });
     }
 
-    // No discount/shipping/tax logic yet — that's a later step.
     const grandTotal = subtotal;
-
     const orderNumber = await this.generateOrderNumber();
 
-    const order = await db.orm.public.Order.create({
-      organizationId,
-      customerId: customer.id,
-      orderNumber,
-      status: 'PENDING',
-      paymentStatus: 'PENDING',
-      paymentMethod: dto.paymentMethod ?? 'COD',
-      channel: 'ONLINE',
-      currency: cart.currency ?? 'BDT',
-      subtotal: money(subtotal),
-      discountTotal: money(0),
-      shippingTotal: money(0),
-      taxTotal: money(0),
-      grandTotal: money(grandTotal),
-      customerName: customer.name ?? address.recipientName,
-      customerPhone: customer.phone,
-      customerEmail: customer.email ?? undefined,
-      shippingRecipientName: address.recipientName,
-      shippingPhone: address.phone,
-      shippingAddressLine1: address.addressLine1,
-      shippingAddressLine2: address.addressLine2 ?? undefined,
-      shippingCity: address.city,
-      shippingDistrict: address.district,
-      shippingPostalCode: address.postalCode ?? undefined,
-      shippingCountry: address.country ?? 'BD',
+    const orderId = await db.transaction(async (tx) => {
+      // 1) Reserve stock for every line (all-or-nothing).
+      const reservations: {
+        stockId: number;
+        branchId: number;
+        productVariantId: number;
+        quantity: number;
+      }[] = [];
+
+      for (const line of lines) {
+        const stocks = await tx.orm.public.InventoryStock
+          .where({ organizationId, productVariantId: line.productVariantId })
+          .all();
+
+        const best = stocks
+          .map((s) => ({ s, available: s.quantity - s.reservedQuantity }))
+          .filter((x) => x.available >= line.quantity)
+          .sort((a, b) => b.available - a.available)[0];
+
+        if (!best) {
+          throw new BadRequestException(`Insufficient stock for ${line.sku}`);
+        }
+
+        const updated = await tx.orm.public.InventoryStock
+          .where({ id: best.s.id })
+          .update({ reservedQuantity: best.s.reservedQuantity + line.quantity });
+
+        if (!updated) {
+          throw new ConflictException(`Failed to reserve stock for ${line.sku}`);
+        }
+
+        reservations.push({
+          stockId: best.s.id,
+          branchId: best.s.branchId,
+          productVariantId: line.productVariantId,
+          quantity: line.quantity,
+        });
+      }
+
+      // 2) Create the order.
+      const order = await tx.orm.public.Order.create({
+        organizationId,
+        customerId: customer.id,
+        orderNumber,
+        status: 'PENDING',
+        paymentStatus: 'PENDING',
+        paymentMethod: dto.paymentMethod ?? 'COD',
+        channel: 'ONLINE',
+        currency: cart.currency ?? 'BDT',
+        subtotal: money(subtotal),
+        discountTotal: money(0),
+        shippingTotal: money(0),
+        taxTotal: money(0),
+        grandTotal: money(grandTotal),
+        customerName: customer.name ?? address.recipientName,
+        customerPhone: customer.phone,
+        customerEmail: customer.email ?? undefined,
+        shippingRecipientName: address.recipientName,
+        shippingPhone: address.phone,
+        shippingAddressLine1: address.addressLine1,
+        shippingAddressLine2: address.addressLine2 ?? undefined,
+        shippingCity: address.city,
+        shippingDistrict: address.district,
+        shippingPostalCode: address.postalCode ?? undefined,
+        shippingCountry: address.country ?? 'BD',
+      });
+
+      // 3) Order items.
+      for (const line of lines) {
+        await tx.orm.public.OrderItem.create({
+          orderId: order.id,
+          productVariantId: line.productVariantId,
+          productName: line.productName,
+          sku: line.sku,
+          quantity: line.quantity,
+          unitPrice: money(line.unitPrice),
+          lineTotal: money(line.lineTotal),
+        });
+      }
+
+      // 4) Audit trail: one stockMovement per reservation.
+      // 'ADJUSTMENT' is used because the type enum has no RESERVE value.
+      for (const r of reservations) {
+        await tx.orm.public.StockMovement.create({
+          organizationId,
+          branchId: r.branchId,
+          productVariantId: r.productVariantId,
+          inventoryStockId: r.stockId,
+          type: 'ADJUSTMENT',
+          quantity: r.quantity,
+          referenceType: 'ORDER',
+          referenceId: order.id,
+          note: `Reserved for ${orderNumber}`,
+        });
+      }
+
+      // 5) Close the cart.
+      const cartUpdated = await tx.orm.public.Cart
+        .where({ id: cart.id, status: 'ACTIVE' })
+        .update({ status: 'CHECKED_OUT' });
+      if (!cartUpdated) {
+        throw new ConflictException('Failed to close cart after checkout');
+      }
+
+      return order.id;
     });
 
-    for (const line of lines) {
-      await db.orm.public.OrderItem.create({
-        orderId: order.id,
-        productVariantId: line.productVariantId,
-        productName: line.productName,
-        sku: line.sku,
-        quantity: line.quantity,
-        unitPrice: money(line.unitPrice),
-        lineTotal: money(line.lineTotal),
-      });
-    }
-
-    // Lock the cart so it can't be checked out again.
-    const cartUpdated = await db.orm.public.Cart
-      .where({ id: cart.id })
-      .update({ status: 'CHECKED_OUT' });
-
-    if (!cartUpdated) {
-      throw new ConflictException('Failed to close cart after checkout');
-    }
-
-    return this.getOrder(organizationId, order.id);
+    return this.getOrder(organizationId, orderId);
   }
 
   async getOrder(organizationId: number, orderId: number) {
