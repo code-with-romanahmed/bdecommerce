@@ -1,11 +1,11 @@
 import {
-    ConflictException,
-    Injectable,
-    NotFoundException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 
+import type { Numeric } from "@prisma/orm-postgres/target/codec-types";
 import { db } from '../prisma/db.js';
-
 import type { CreateCategoryDto } from './category.dto.js';
 import type { CreateProductVariantDto } from './product-variant.dto.js';
 import type { CreateProductDto } from './product.dto.js';
@@ -133,7 +133,7 @@ export class ProductService {
       productId,
       sku: dto.sku,
       name: dto.name,
-      price: dto.price,
+      price: dto.price as Numeric<10, 2>,
     });
   }
 

@@ -34,6 +34,131 @@ enum StockMovementType {
   RETURN_OUT
 }
 
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+  BLOCKED
+}
+
+enum CartStatus {
+  ACTIVE
+  CHECKED_OUT
+  ABANDONED
+}
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  RETURNED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  AUTHORIZED
+  PAID
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum PaymentMethod {
+  COD
+  BKASH
+  NAGAD
+  ROCKET
+  CARD
+  OTHER
+}
+
+enum OrderChannel {
+  ONLINE
+  POS
+  B2B
+}
+
+model Order {
+  id                Int               @id @default(autoincrement())
+  organizationId    Int
+  customerId        Int?
+  orderNumber      String            @unique
+  status             OrderStatus      @default(PENDING)
+  paymentStatus      PaymentStatus    @default(PENDING)
+  paymentMethod      PaymentMethod    @default(COD)
+  channel            OrderChannel     @default(ONLINE)
+  currency           String            @default("BDT")
+
+  subtotal           Numeric(12, 2)
+  discountTotal      Numeric(12, 2)
+  shippingTotal      Numeric(12, 2)
+  taxTotal           Numeric(12, 2)
+  grandTotal         Numeric(12, 2)
+
+  customerName       String
+  customerPhone      String
+  customerEmail      String?
+
+  shippingRecipientName String
+  shippingPhone         String
+  shippingAddressLine1  String
+  shippingAddressLine2  String?
+  shippingCity          String
+  shippingDistrict      String
+  shippingPostalCode    String?
+  shippingCountry       String        @default("BD")
+
+  createdAt          TimestamptzString @default(now())
+
+  organization       Organization      @relation(fields: [organizationId], references: [id])
+  customer           Customer?         @relation(fields: [customerId], references: [id])
+  items              OrderItem[]
+  payments           Payment[]
+
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([organizationId, customerId])
+  @@index([customerId])
+}
+
+model OrderItem {
+  id                Int               @id @default(autoincrement())
+  orderId           Int
+  productVariantId  Int
+
+  productName       String
+  sku               String
+
+  quantity          Int
+  unitPrice         Numeric(12, 2)
+  lineTotal         Numeric(12, 2)
+
+  createdAt         TimestamptzString @default(now())
+
+  order             Order             @relation(fields: [orderId], references: [id])
+  productVariant    ProductVariant    @relation(fields: [productVariantId], references: [id])
+
+  @@index([orderId])
+  @@index([productVariantId])
+}
+
+model Payment {
+  id                Int               @id @default(autoincrement())
+  orderId           Int
+  amount            Numeric(12, 2)
+  currency          String            @default("BDT")
+  status            PaymentStatus     @default(PENDING)
+  method            PaymentMethod
+  transactionId     String?
+  createdAt         TimestamptzString @default(now())
+
+  order             Order             @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+  @@index([transactionId])
+}
 model Organization {
   id         Int               @id @default(autoincrement())
   name       String
@@ -47,6 +172,9 @@ model Organization {
   categories Category[]
   products   Product[]
   roles      Role[]
+  customers  Customer[]
+  carts      Cart[]
+  orders     Order[]
 }
 
 model Branch {
@@ -174,13 +302,15 @@ model ProductVariant {
   productId       Int
   sku             String
   name            String?
-  price           Decimal
+  price           Numeric
   status          ProductStatus     @default(ACTIVE)
   createdAt       TimestamptzString @default(now())
 
   product         Product           @relation(fields: [productId], references: [id])
   inventoryStocks InventoryStock[]
   stockMovements  StockMovement[]
+  cartItems CartItem[]
+  orderItems OrderItem[]
 
   @@unique([sku])
   @@index([productId])
@@ -226,4 +356,78 @@ model StockMovement {
   @@index([branchId])
   @@index([productVariantId])
   @@index([inventoryStockId])
+}
+
+model Customer {
+  id             Int               @id @default(autoincrement())
+  organizationId Int
+  phone          String
+  email          String?
+  name           String?
+  status         CustomerStatus    @default(ACTIVE)
+  createdAt      TimestamptzString @default(now())
+
+  organization   Organization      @relation(fields: [organizationId], references: [id])
+  addresses      CustomerAddress[]
+  carts          Cart[]
+  orders         Order[]
+
+  @@unique([organizationId, phone])
+  @@index([organizationId])
+  @@index([organizationId, email])
+}
+
+model CustomerAddress {
+  id           Int               @id @default(autoincrement())
+  customerId   Int
+  label        String
+  recipientName String
+  phone        String
+  addressLine1 String
+  addressLine2 String?
+  city         String
+  district     String
+  postalCode   String?
+  country      String            @default("BD")
+  isDefault    Boolean           @default(false)
+  createdAt    TimestamptzString @default(now())
+
+  customer     Customer          @relation(fields: [customerId], references: [id])
+
+  @@index([customerId])
+  @@index([customerId, isDefault])
+}
+
+model Cart {
+  id             Int               @id @default(autoincrement())
+  organizationId Int
+  customerId     Int?
+  guestSessionId String?
+  status         CartStatus        @default(ACTIVE)
+  currency       String            @default("BDT")
+  createdAt      TimestamptzString @default(now())
+
+  organization   Organization      @relation(fields: [organizationId], references: [id])
+  customer       Customer?        @relation(fields: [customerId], references: [id])
+  items          CartItem[]
+
+  @@index([organizationId])
+  @@index([customerId])
+  @@index([guestSessionId])
+  @@index([organizationId, status])
+}
+
+model CartItem {
+  id               Int               @id @default(autoincrement())
+  cartId           Int
+  productVariantId Int
+  quantity         Int
+  createdAt        TimestamptzString @default(now())
+
+  cart             Cart              @relation(fields: [cartId], references: [id])
+  productVariant   ProductVariant    @relation(fields: [productVariantId], references: [id])
+
+  @@unique([cartId, productVariantId])
+  @@index([cartId])
+  @@index([productVariantId])
 }
