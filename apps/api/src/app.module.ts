@@ -9,6 +9,7 @@ import { CustomerModule } from './customer/customer.module.js';
 import { InventoryModule } from './inventory/inventory.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { OrderModule } from './order/order.module.js';
+import { PaymentModule } from './payment/payment.module.js';
 import { OrganizationModule } from './organization/organization.module.js';
 import { OtpModule } from './otp/otp.module.js';
 import { ProductModule } from './product/product.module.js';
@@ -29,6 +30,7 @@ import { RedisModule } from './redis/redis.module.js';
     InventoryModule,
     CartModule,
     OrderModule,
+    PaymentModule,
   ],
   controllers: [AppController],
   providers: [AppService],
