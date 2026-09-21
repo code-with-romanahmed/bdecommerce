@@ -128,8 +128,12 @@ export class OrderService {
           throw new BadRequestException(`Insufficient stock for ${line.sku}`);
         }
 
-        const updated = await tx.orm.public.InventoryStock
-          .where({ id: best.s.id })
+               const updated = await tx.orm.public.InventoryStock
+          .where({
+            id: best.s.id,
+            reservedQuantity: best.s.reservedQuantity,
+            quantity: best.s.quantity,
+          })
           .update({ reservedQuantity: best.s.reservedQuantity + line.quantity });
 
         if (!updated) {
