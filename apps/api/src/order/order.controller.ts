@@ -59,7 +59,29 @@ export class OrderController {
     );
   }
 
+@Patch(':id/ship')
+  @RequirePermission('order.update')
+  shipOrder(
+    @Req() request: AuthenticatedRequest,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.orderService.shipOrder(
+      request.authUser!.organizationId,
+      id,
+    );
+  }
 
+  @Patch(':id/deliver')
+  @RequirePermission('order.update')
+  deliverOrder(
+    @Req() request: AuthenticatedRequest,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.orderService.deliverOrder(
+      request.authUser!.organizationId,
+      id,
+    );
+  }
   @Get(':id')
   @RequirePermission('order.read')
   getOrder(

@@ -322,6 +322,73 @@ export class OrderService {
 
     return this.getOrder(organizationId, order.id);
   }
+  async shipOrder(organizationId: number, orderId: number) {
+    const order = await db.orm.public.Order
+      .where({ id: orderId, organizationId })
+      .first();
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    if (order.status !== 'CONFIRMED') {
+      throw new BadRequestException(
+        `Only CONFIRMED orders can be shipped (current: ${order.status})`,
+      );
+    }
+
+    const updated = await db.orm.public.Order
+      .where({ id: order.id, organizationId, status: 'CONFIRMED' })
+      .update({ status: 'SHIPPED' });
+
+    if (!updated) {
+      throw new ConflictException('Order status changed, please retry');
+    }
+
+    return this.getOrder(organizationId, order.id);
+  }
+
+  async deliverOrder(organizationId: number, orderId: number) {
+    const order = await db.orm.public.Order
+      .where({ id: orderId, organizationId })
+      .first();
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    if (order.status !== 'SHIPPED') {
+      throw new BadRequestException(
+        `Only SHIPPED orders can be delivered (current: ${order.status})`,
+      );
+    }
+
+    const updated = await db.orm.public.Order
+      .where({ id: order.id, organizationId, status: 'SHIPPED' })
+      .update({ status: 'DELIVERED' });
+
+    if (!updated) {
+      throw new ConflictException('Order status changed, please retry');
+    }
+
+    // COD is collected at the door on delivery — record it automatically.
+    // Non-COD methods go through POST /orders/:id/payments instead.
+    if (order.paymentMethod === 'COD' && order.paymentStatus !== 'PAID') {
+      await db.orm.public.Payment.create({
+        orderId: order.id,
+        amount: order.grandTotal,
+        currency: order.currency,
+        status: 'PAID',
+        method: 'COD',
+      });
+
+      await db.orm.public.Order
+        .where({ id: order.id, organizationId })
+        .update({ paymentStatus: 'PAID' });
+    }
+
+    return this.getOrder(organizationId, order.id);
+  }
   async getOrder(organizationId: number, orderId: number) {
     const order = await db.orm.public.Order
       .where({ id: orderId, organizationId })
