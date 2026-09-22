@@ -10,6 +10,15 @@ import { db } from '../prisma/db.js';
 
 import type { CreateOrderDto } from './order.dto.js';
 
+const SHIPPING_INSIDE_DHAKA = 60;
+const SHIPPING_OUTSIDE_DHAKA = 120;
+
+function calculateShipping(city: string): number {
+  return city.trim().toLowerCase() === 'dhaka'
+    ? SHIPPING_INSIDE_DHAKA
+    : SHIPPING_OUTSIDE_DHAKA;
+}
+
 function money(value: number): Numeric<12, 2> {
   return value.toFixed(2) as Numeric<12, 2>;
 }
@@ -102,7 +111,8 @@ export class OrderService {
       });
     }
 
-    const grandTotal = subtotal;
+    const shippingTotal = calculateShipping(address.city);
+    const grandTotal = subtotal + shippingTotal;
 
     const runTransaction = async (orderNumber: string) =>
       db.transaction(async (tx) => {
@@ -160,7 +170,7 @@ export class OrderService {
           currency: cart.currency ?? 'BDT',
           subtotal: money(subtotal),
           discountTotal: money(0),
-          shippingTotal: money(0),
+          shippingTotal: money(shippingTotal),
           taxTotal: money(0),
           grandTotal: money(grandTotal),
           customerName: customer.name ?? address.recipientName,
