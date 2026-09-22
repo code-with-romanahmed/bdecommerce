@@ -102,10 +102,10 @@ export class OrderService {
       });
     }
 
-    const grandTotal = subtotal;
-    const orderNumber = await this.generateOrderNumber();
+        const grandTotal = subtotal;
 
-    const orderId = await db.transaction(async (tx) => {
+    const runTransaction = async (orderNumber: string) =>
+      db.transaction(async (tx) => {
       // 1) Reserve stock for every line (all-or-nothing).
       const reservations: {
         stockId: number;
@@ -213,8 +213,36 @@ export class OrderService {
         throw new ConflictException('Failed to close cart after checkout');
       }
 
-      return order.id;
+          return order.id;
     });
+
+    let orderId: number | undefined;
+
+    for (let attempt = 1; attempt <= 5; attempt++) {
+      const orderNumber = await this.generateOrderNumber();
+
+      try {
+        orderId = await runTransaction(orderNumber);
+        break;
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : String(error);
+
+        const isOrderNumberClash =
+          message.includes('order_orderNumber_key') ||
+          message.includes('duplicate key value');
+
+        if (!isOrderNumberClash || attempt === 5) {
+          throw error;
+        }
+      }
+    }
+
+    if (orderId === undefined) {
+      throw new ConflictException(
+        'Could not generate a unique order number',
+      );
+    }
 
     return this.getOrder(organizationId, orderId);
   }
@@ -352,7 +380,7 @@ export class OrderService {
     return this.getOrder(organizationId, order.id);
   }
 
-  async deliverOrder(organizationId: number, orderId: number) {
+    async deliverOrder(organizationId: number, orderId: number) {
     const order = await db.orm.public.Order
       .where({ id: orderId, organizationId })
       .first();
@@ -367,29 +395,133 @@ export class OrderService {
       );
     }
 
-    const updated = await db.orm.public.Order
-      .where({ id: order.id, organizationId, status: 'SHIPPED' })
-      .update({ status: 'DELIVERED' });
+    await db.transaction(async (tx) => {
+      const updated = await tx.orm.public.Order
+        .where({
+          id: order.id,
+          organizationId,
+          status: 'SHIPPED',
+        })
+        .update({ status: 'DELIVERED' });
 
-    if (!updated) {
-      throw new ConflictException('Order status changed, please retry');
-    }
+      if (!updated) {
+        throw new ConflictException(
+          'Order status changed, please retry',
+        );
+      }
 
-    // COD is collected at the door on delivery — record it automatically.
-    // Non-COD methods go through POST /orders/:id/payments instead.
-    if (order.paymentMethod === 'COD' && order.paymentStatus !== 'PAID') {
-      await db.orm.public.Payment.create({
-        orderId: order.id,
-        amount: order.grandTotal,
-        currency: order.currency,
-        status: 'PAID',
-        method: 'COD',
-      });
+      const orderItems = await tx.orm.public.OrderItem
+        .where({ orderId: order.id })
+        .all();
 
-      await db.orm.public.Order
-        .where({ id: order.id, organizationId })
-        .update({ paymentStatus: 'PAID' });
-    }
+      for (const item of orderItems) {
+        const movements = await tx.orm.public.StockMovement
+          .where({
+            organizationId,
+            referenceType: 'ORDER',
+            referenceId: order.id,
+            productVariantId: item.productVariantId,
+          })
+          .all();
+
+        let remaining = item.quantity;
+
+        for (const movement of movements) {
+          if (remaining <= 0) {
+            break;
+          }
+
+          const reservedQty = Math.min(remaining, movement.quantity);
+
+          const stock = await tx.orm.public.InventoryStock
+            .where({ id: movement.inventoryStockId })
+            .first();
+
+          if (!stock) {
+            throw new NotFoundException(
+              `Inventory stock ${movement.inventoryStockId} not found`,
+            );
+          }
+
+          if (stock.reservedQuantity < reservedQty) {
+            throw new ConflictException(
+              `Invalid reserved stock state for product variant ${item.productVariantId}`,
+            );
+          }
+
+          if (stock.quantity < reservedQty) {
+            throw new ConflictException(
+              `Insufficient physical stock for product variant ${item.productVariantId}`,
+            );
+          }
+
+          const stockUpdated = await tx.orm.public.InventoryStock
+            .where({
+              id: stock.id,
+              quantity: stock.quantity,
+              reservedQuantity: stock.reservedQuantity,
+            })
+            .update({
+              quantity: stock.quantity - reservedQty,
+              reservedQuantity: stock.reservedQuantity - reservedQty,
+            });
+
+          if (!stockUpdated) {
+            throw new ConflictException(
+              'Inventory changed while completing delivery, please retry',
+            );
+          }
+
+          await tx.orm.public.StockMovement.create({
+            organizationId,
+            branchId: movement.branchId,
+            productVariantId: movement.productVariantId,
+            inventoryStockId: stock.id,
+            type: 'OUT',
+            quantity: -reservedQty,
+            referenceType: 'ORDER_DELIVERY',
+            referenceId: order.id,
+            note: `Sold for ${order.orderNumber}`,
+          });
+
+          remaining -= reservedQty;
+        }
+
+        if (remaining > 0) {
+          throw new ConflictException(
+            `Could not settle reserved stock for ${item.sku}`,
+          );
+        }
+      }
+
+      // COD is collected at the door on delivery.
+      // Non-COD methods go through POST /orders/:id/payments.
+      if (
+        order.paymentMethod === 'COD' &&
+        order.paymentStatus !== 'PAID'
+      ) {
+        await tx.orm.public.Payment.create({
+          orderId: order.id,
+          amount: order.grandTotal,
+          currency: order.currency,
+          status: 'PAID',
+          method: 'COD',
+        });
+
+        const paymentUpdated = await tx.orm.public.Order
+          .where({
+            id: order.id,
+            organizationId,
+          })
+          .update({ paymentStatus: 'PAID' });
+
+        if (!paymentUpdated) {
+          throw new ConflictException(
+            'Failed to update payment status',
+          );
+        }
+      }
+    });
 
     return this.getOrder(organizationId, order.id);
   }

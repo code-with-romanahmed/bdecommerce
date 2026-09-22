@@ -10,6 +10,8 @@ import {
 
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { OrganizationId } from '../auth/organization-context.decorator.js';
+import { RequirePermission } from '../rbac/permission.decorator.js';
+import { PermissionGuard } from '../rbac/permission.guard.js';
 
 import {
   CreateCustomerAddressDto,
@@ -19,13 +21,14 @@ import {
 import { CustomerService } from './customer.service.js';
 
 @Controller('customers')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard)
 export class CustomerController {
   constructor(
     private readonly customerService: CustomerService,
   ) {}
 
   @Post()
+  @RequirePermission('customer.update')
   async createCustomer(
     @OrganizationId() organizationId: number,
     @Body() dto: CreateCustomerDto,
@@ -37,6 +40,7 @@ export class CustomerController {
   }
 
   @Get()
+  @RequirePermission('customer.read')
   async listCustomers(
     @OrganizationId() organizationId: number,
   ) {
@@ -46,6 +50,7 @@ export class CustomerController {
   }
 
   @Get(':customerId')
+  @RequirePermission('customer.read')
   async getCustomer(
     @OrganizationId() organizationId: number,
     @Param('customerId', ParseIntPipe)
@@ -58,6 +63,7 @@ export class CustomerController {
   }
 
   @Post(':customerId/addresses')
+  @RequirePermission('customer.update')
   async addAddress(
     @OrganizationId() organizationId: number,
     @Param('customerId', ParseIntPipe)
@@ -72,6 +78,7 @@ export class CustomerController {
   }
 
   @Get(':customerId/addresses')
+  @RequirePermission('customer.read')
   async listAddresses(
     @OrganizationId() organizationId: number,
     @Param('customerId', ParseIntPipe)

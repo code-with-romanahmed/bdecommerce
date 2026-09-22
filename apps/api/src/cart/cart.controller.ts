@@ -1,35 +1,38 @@
 import {
-    Body,
-    Controller,
-    Delete,
-    Get,
-    Param,
-    ParseIntPipe,
-    Patch,
-    Post,
-    Query,
-    UseGuards,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
 } from '@nestjs/common';
 
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { OrganizationId } from '../auth/organization-context.decorator.js';
+import { RequirePermission } from '../rbac/permission.decorator.js';
+import { PermissionGuard } from '../rbac/permission.guard.js';
 
 import {
-    AddCartItemDto,
-    CreateCartDto,
-    UpdateCartItemDto,
+  AddCartItemDto,
+  CreateCartDto,
+  UpdateCartItemDto,
 } from './cart.dto.js';
 
 import { CartService } from './cart.service.js';
 
 @Controller('carts')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard)
 export class CartController {
   constructor(
     private readonly cartService: CartService,
   ) {}
 
   @Post()
+  @RequirePermission('cart.update')
   async createOrGetCart(
     @OrganizationId() organizationId: number,
     @Body() dto: CreateCartDto,
@@ -41,6 +44,7 @@ export class CartController {
   }
 
   @Get('active')
+  @RequirePermission('cart.read')
   async getActiveCart(
     @OrganizationId() organizationId: number,
     @Query('customerId')
@@ -58,6 +62,7 @@ export class CartController {
   }
 
   @Post(':cartId/items')
+  @RequirePermission('cart.update')
   async addItem(
     @OrganizationId() organizationId: number,
     @Param('cartId', ParseIntPipe)
@@ -72,6 +77,7 @@ export class CartController {
   }
 
   @Get(':cartId/items')
+  @RequirePermission('cart.read')
   async listItems(
     @OrganizationId() organizationId: number,
     @Param('cartId', ParseIntPipe)
@@ -84,6 +90,7 @@ export class CartController {
   }
 
   @Patch(':cartId/items/:itemId')
+  @RequirePermission('cart.update')
   async updateItem(
     @OrganizationId() organizationId: number,
     @Param('cartId', ParseIntPipe)
@@ -101,6 +108,7 @@ export class CartController {
   }
 
   @Delete(':cartId/items/:itemId')
+  @RequirePermission('cart.update')
   async removeItem(
     @OrganizationId() organizationId: number,
     @Param('cartId', ParseIntPipe)
@@ -116,6 +124,7 @@ export class CartController {
   }
 
   @Delete(':cartId/items')
+  @RequirePermission('cart.update')
   async clearCart(
     @OrganizationId() organizationId: number,
     @Param('cartId', ParseIntPipe)
