@@ -29,3 +29,13 @@ export class CreateOrderDto {
   @IsIn(PAYMENT_METHODS)
   paymentMethod?: PaymentMethodInput;
 }
+export class CreatePaymentDto {
+  @IsPositive()
+  amount!: number;
+
+  @IsIn(PAYMENT_METHODS)
+  method!: PaymentMethodInput;
+
+  @IsOptional()
+  transactionId?: string;
+}

@@ -7,8 +7,10 @@ import {
 import type { Numeric } from '@prisma/orm-postgres/target/codec-types';
 
 import { db } from '../prisma/db.js';
-
-import type { CreateOrderDto } from './order.dto.js';
+import {
+  CreateOrderDto,
+  CreatePaymentDto,
+} from './order.dto.js';
 
 const SHIPPING_INSIDE_DHAKA = 60;
 const SHIPPING_OUTSIDE_DHAKA = 120;
@@ -560,7 +562,57 @@ export class OrderService {
 
     return { ...order, items };
   }
+  async createPayment(
+    organizationId: number,
+    orderId: number,
+    dto: CreatePaymentDto,
+  ) {
+    const order = await db.orm.public.Order
+      .where({ id: orderId, organizationId })
+      .first();
 
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    if (order.status === 'CANCELLED') {
+      throw new BadRequestException(
+        'Cannot create payment for a cancelled order',
+      );
+    }
+
+    if (dto.amount <= 0) {
+      throw new BadRequestException(
+        'Payment amount must be greater than zero',
+      );
+    }
+
+    if (dto.amount > Number(order.grandTotal)) {
+      throw new BadRequestException(
+        'Payment amount cannot exceed order total',
+      );
+    }
+
+    const payment = await db.orm.public.Payment.create({
+      orderId: order.id,
+      amount: money(dto.amount),
+      currency: order.currency,
+      status: 'PAID',
+      method: dto.method,
+      transactionId: dto.transactionId ?? undefined,
+    });
+
+    await db.orm.public.Order
+      .where({
+        id: order.id,
+        organizationId,
+      })
+      .update({
+        paymentStatus: 'PAID',
+      });
+
+    return payment;
+  }
   async listOrders(organizationId: number) {
     return db.orm.public.Order.where({ organizationId }).all();
   }
