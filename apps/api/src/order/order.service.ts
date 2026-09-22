@@ -102,119 +102,119 @@ export class OrderService {
       });
     }
 
-        const grandTotal = subtotal;
+    const grandTotal = subtotal;
 
     const runTransaction = async (orderNumber: string) =>
       db.transaction(async (tx) => {
-      // 1) Reserve stock for every line (all-or-nothing).
-      const reservations: {
-        stockId: number;
-        branchId: number;
-        productVariantId: number;
-        quantity: number;
-      }[] = [];
+        // 1) Reserve stock for every line (all-or-nothing).
+        const reservations: {
+          stockId: number;
+          branchId: number;
+          productVariantId: number;
+          quantity: number;
+        }[] = [];
 
-      for (const line of lines) {
-        const stocks = await tx.orm.public.InventoryStock
-          .where({ organizationId, productVariantId: line.productVariantId })
-          .all();
+        for (const line of lines) {
+          const stocks = await tx.orm.public.InventoryStock
+            .where({ organizationId, productVariantId: line.productVariantId })
+            .all();
 
-        const best = stocks
-          .map((s) => ({ s, available: s.quantity - s.reservedQuantity }))
-          .filter((x) => x.available >= line.quantity)
-          .sort((a, b) => b.available - a.available)[0];
+          const best = stocks
+            .map((s) => ({ s, available: s.quantity - s.reservedQuantity }))
+            .filter((x) => x.available >= line.quantity)
+            .sort((a, b) => b.available - a.available)[0];
 
-        if (!best) {
-          throw new BadRequestException(`Insufficient stock for ${line.sku}`);
+          if (!best) {
+            throw new BadRequestException(`Insufficient stock for ${line.sku}`);
+          }
+
+          const updated = await tx.orm.public.InventoryStock
+            .where({
+              id: best.s.id,
+              reservedQuantity: best.s.reservedQuantity,
+              quantity: best.s.quantity,
+            })
+            .update({ reservedQuantity: best.s.reservedQuantity + line.quantity });
+
+          if (!updated) {
+            throw new ConflictException(`Failed to reserve stock for ${line.sku}`);
+          }
+
+          reservations.push({
+            stockId: best.s.id,
+            branchId: best.s.branchId,
+            productVariantId: line.productVariantId,
+            quantity: line.quantity,
+          });
         }
 
-               const updated = await tx.orm.public.InventoryStock
-          .where({
-            id: best.s.id,
-            reservedQuantity: best.s.reservedQuantity,
-            quantity: best.s.quantity,
-          })
-          .update({ reservedQuantity: best.s.reservedQuantity + line.quantity });
-
-        if (!updated) {
-          throw new ConflictException(`Failed to reserve stock for ${line.sku}`);
-        }
-
-        reservations.push({
-          stockId: best.s.id,
-          branchId: best.s.branchId,
-          productVariantId: line.productVariantId,
-          quantity: line.quantity,
-        });
-      }
-
-      // 2) Create the order.
-      const order = await tx.orm.public.Order.create({
-        organizationId,
-        customerId: customer.id,
-        orderNumber,
-        status: 'PENDING',
-        paymentStatus: 'PENDING',
-        paymentMethod: dto.paymentMethod ?? 'COD',
-        channel: 'ONLINE',
-        currency: cart.currency ?? 'BDT',
-        subtotal: money(subtotal),
-        discountTotal: money(0),
-        shippingTotal: money(0),
-        taxTotal: money(0),
-        grandTotal: money(grandTotal),
-        customerName: customer.name ?? address.recipientName,
-        customerPhone: customer.phone,
-        customerEmail: customer.email ?? undefined,
-        shippingRecipientName: address.recipientName,
-        shippingPhone: address.phone,
-        shippingAddressLine1: address.addressLine1,
-        shippingAddressLine2: address.addressLine2 ?? undefined,
-        shippingCity: address.city,
-        shippingDistrict: address.district,
-        shippingPostalCode: address.postalCode ?? undefined,
-        shippingCountry: address.country ?? 'BD',
-      });
-
-      // 3) Order items.
-      for (const line of lines) {
-        await tx.orm.public.OrderItem.create({
-          orderId: order.id,
-          productVariantId: line.productVariantId,
-          productName: line.productName,
-          sku: line.sku,
-          quantity: line.quantity,
-          unitPrice: money(line.unitPrice),
-          lineTotal: money(line.lineTotal),
-        });
-      }
-
-      // 4) Audit trail: one stockMovement per reservation.
-      // 'ADJUSTMENT' is used because the type enum has no RESERVE value.
-      for (const r of reservations) {
-        await tx.orm.public.StockMovement.create({
+        // 2) Create the order.
+        const order = await tx.orm.public.Order.create({
           organizationId,
-          branchId: r.branchId,
-          productVariantId: r.productVariantId,
-          inventoryStockId: r.stockId,
-          type: 'ADJUSTMENT',
-          quantity: r.quantity,
-          referenceType: 'ORDER',
-          referenceId: order.id,
-          note: `Reserved for ${orderNumber}`,
+          customerId: customer.id,
+          orderNumber,
+          status: 'PENDING',
+          paymentStatus: 'PENDING',
+          paymentMethod: dto.paymentMethod ?? 'COD',
+          channel: 'ONLINE',
+          currency: cart.currency ?? 'BDT',
+          subtotal: money(subtotal),
+          discountTotal: money(0),
+          shippingTotal: money(0),
+          taxTotal: money(0),
+          grandTotal: money(grandTotal),
+          customerName: customer.name ?? address.recipientName,
+          customerPhone: customer.phone,
+          customerEmail: customer.email ?? undefined,
+          shippingRecipientName: address.recipientName,
+          shippingPhone: address.phone,
+          shippingAddressLine1: address.addressLine1,
+          shippingAddressLine2: address.addressLine2 ?? undefined,
+          shippingCity: address.city,
+          shippingDistrict: address.district,
+          shippingPostalCode: address.postalCode ?? undefined,
+          shippingCountry: address.country ?? 'BD',
         });
-      }
 
-      // 5) Close the cart.
-      const cartUpdated = await tx.orm.public.Cart
-        .where({ id: cart.id, status: 'ACTIVE' })
-        .update({ status: 'CHECKED_OUT' });
-      if (!cartUpdated) {
-        throw new ConflictException('Failed to close cart after checkout');
-      }
+        // 3) Order items.
+        for (const line of lines) {
+          await tx.orm.public.OrderItem.create({
+            orderId: order.id,
+            productVariantId: line.productVariantId,
+            productName: line.productName,
+            sku: line.sku,
+            quantity: line.quantity,
+            unitPrice: money(line.unitPrice),
+            lineTotal: money(line.lineTotal),
+          });
+        }
 
-          return order.id;
-    });
+        // 4) Audit trail: one stockMovement per reservation.
+        // 'ADJUSTMENT' is used because the type enum has no RESERVE value.
+        for (const r of reservations) {
+          await tx.orm.public.StockMovement.create({
+            organizationId,
+            branchId: r.branchId,
+            productVariantId: r.productVariantId,
+            inventoryStockId: r.stockId,
+            type: 'ADJUSTMENT',
+            quantity: r.quantity,
+            referenceType: 'ORDER',
+            referenceId: order.id,
+            note: `Reserved for ${orderNumber}`,
+          });
+        }
+
+        // 5) Close the cart.
+        const cartUpdated = await tx.orm.public.Cart
+          .where({ id: cart.id, status: 'ACTIVE' })
+          .update({ status: 'CHECKED_OUT' });
+        if (!cartUpdated) {
+          throw new ConflictException('Failed to close cart after checkout');
+        }
+
+        return order.id;
+      });
 
     let orderId: number | undefined;
 
@@ -225,6 +225,11 @@ export class OrderService {
         orderId = await runTransaction(orderNumber);
         break;
       } catch (error) {
+        if (error instanceof BadRequestException) {
+          // Genuinely out of stock — retrying won't help.
+          throw error;
+        }
+
         const message =
           error instanceof Error ? error.message : String(error);
 
@@ -232,20 +237,23 @@ export class OrderService {
           message.includes('order_orderNumber_key') ||
           message.includes('duplicate key value');
 
-        if (!isOrderNumberClash || attempt === 5) {
+        const isReserveConflict = error instanceof ConflictException;
+
+        if ((!isOrderNumberClash && !isReserveConflict) || attempt === 5) {
           throw error;
         }
+        // Either the order number or a stock row was taken by a
+        // concurrent request; loop and try again with fresh reads.
       }
     }
 
     if (orderId === undefined) {
-      throw new ConflictException(
-        'Could not generate a unique order number',
-      );
+      throw new ConflictException('Could not complete order after retries');
     }
 
     return this.getOrder(organizationId, orderId);
   }
+
   async confirmOrder(organizationId: number, orderId: number) {
     const order = await db.orm.public.Order
       .where({ id: orderId, organizationId })
@@ -354,6 +362,7 @@ export class OrderService {
 
     return this.getOrder(organizationId, order.id);
   }
+
   async shipOrder(organizationId: number, orderId: number) {
     const order = await db.orm.public.Order
       .where({ id: orderId, organizationId })
@@ -380,7 +389,7 @@ export class OrderService {
     return this.getOrder(organizationId, order.id);
   }
 
-    async deliverOrder(organizationId: number, orderId: number) {
+  async deliverOrder(organizationId: number, orderId: number) {
     const order = await db.orm.public.Order
       .where({ id: orderId, organizationId })
       .first();
@@ -525,6 +534,7 @@ export class OrderService {
 
     return this.getOrder(organizationId, order.id);
   }
+
   async getOrder(organizationId: number, orderId: number) {
     const order = await db.orm.public.Order
       .where({ id: orderId, organizationId })

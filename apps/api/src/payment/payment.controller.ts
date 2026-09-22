@@ -5,15 +5,13 @@ import {
   Param,
   ParseIntPipe,
   Post,
-  Req,
   UseGuards,
 } from '@nestjs/common';
 
-import type { AuthenticatedRequest } from '../auth/jwt-auth.guard.js';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
+import { OrganizationId } from '../auth/organization-context.decorator.js';
 import { RequirePermission } from '../rbac/permission.decorator.js';
 import { PermissionGuard } from '../rbac/permission.guard.js';
-
 import { RecordPaymentDto } from './payment.dto.js';
 import { PaymentService } from './payment.service.js';
 
@@ -25,26 +23,19 @@ export class PaymentController {
   @Post()
   @RequirePermission('order.update')
   recordPayment(
-    @Req() request: AuthenticatedRequest,
+    @OrganizationId() organizationId: number,
     @Param('orderId', ParseIntPipe) orderId: number,
     @Body() dto: RecordPaymentDto,
   ) {
-    return this.paymentService.recordPayment(
-      request.authUser!.organizationId,
-      orderId,
-      dto,
-    );
+    return this.paymentService.recordPayment(organizationId, orderId, dto);
   }
 
   @Get()
   @RequirePermission('order.read')
   listPayments(
-    @Req() request: AuthenticatedRequest,
+    @OrganizationId() organizationId: number,
     @Param('orderId', ParseIntPipe) orderId: number,
   ) {
-    return this.paymentService.listPayments(
-      request.authUser!.organizationId,
-      orderId,
-    );
+    return this.paymentService.listPayments(organizationId, orderId);
   }
 }

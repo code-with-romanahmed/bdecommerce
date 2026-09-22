@@ -6,15 +6,13 @@ import {
   ParseIntPipe,
   Patch,
   Post,
-  Req,
   UseGuards,
 } from '@nestjs/common';
 
-import type { AuthenticatedRequest } from '../auth/jwt-auth.guard.js';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
+import { OrganizationId } from '../auth/organization-context.decorator.js';
 import { RequirePermission } from '../rbac/permission.decorator.js';
 import { PermissionGuard } from '../rbac/permission.guard.js';
-
 import { CreateOrderDto } from './order.dto.js';
 import { OrderService } from './order.service.js';
 
@@ -26,81 +24,60 @@ export class OrderController {
   @Post()
   @RequirePermission('order.update')
   createOrder(
-    @Req() request: AuthenticatedRequest,
+    @OrganizationId() organizationId: number,
     @Body() dto: CreateOrderDto,
   ) {
-    return this.orderService.createOrder(
-      request.authUser!.organizationId,
-      dto,
-    );
+    return this.orderService.createOrder(organizationId, dto);
   }
 
-    @Patch(':id/confirm')
+  @Patch(':id/confirm')
   @RequirePermission('order.update')
   confirmOrder(
-    @Req() request: AuthenticatedRequest,
+    @OrganizationId() organizationId: number,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.orderService.confirmOrder(
-      request.authUser!.organizationId,
-      id,
-    );
+    return this.orderService.confirmOrder(organizationId, id);
   }
 
   @Patch(':id/cancel')
   @RequirePermission('order.update')
   cancelOrder(
-    @Req() request: AuthenticatedRequest,
+    @OrganizationId() organizationId: number,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.orderService.cancelOrder(
-      request.authUser!.organizationId,
-      id,
-    );
+    return this.orderService.cancelOrder(organizationId, id);
   }
 
-@Patch(':id/ship')
+  @Patch(':id/ship')
   @RequirePermission('order.update')
   shipOrder(
-    @Req() request: AuthenticatedRequest,
+    @OrganizationId() organizationId: number,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.orderService.shipOrder(
-      request.authUser!.organizationId,
-      id,
-    );
+    return this.orderService.shipOrder(organizationId, id);
   }
 
   @Patch(':id/deliver')
   @RequirePermission('order.update')
   deliverOrder(
-    @Req() request: AuthenticatedRequest,
+    @OrganizationId() organizationId: number,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.orderService.deliverOrder(
-      request.authUser!.organizationId,
-      id,
-    );
+    return this.orderService.deliverOrder(organizationId, id);
   }
+
   @Get(':id')
   @RequirePermission('order.read')
   getOrder(
-    @Req() request: AuthenticatedRequest,
+    @OrganizationId() organizationId: number,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.orderService.getOrder(
-      request.authUser!.organizationId,
-      id,
-    );
+    return this.orderService.getOrder(organizationId, id);
   }
 
   @Get()
   @RequirePermission('order.read')
-  listOrders(@Req() request: AuthenticatedRequest) {
-    return this.orderService.listOrders(
-      request.authUser!.organizationId,
-    );
-    
+  listOrders(@OrganizationId() organizationId: number) {
+    return this.orderService.listOrders(organizationId);
   }
-  
 }
