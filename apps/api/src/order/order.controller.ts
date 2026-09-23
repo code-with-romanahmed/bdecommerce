@@ -13,10 +13,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { OrganizationId } from '../auth/organization-context.decorator.js';
 import { RequirePermission } from '../rbac/permission.decorator.js';
 import { PermissionGuard } from '../rbac/permission.guard.js';
-import {
-  CreateOrderDto,
-  CreatePaymentDto,
-} from './order.dto.js';
+import { CreateOrderDto, CreatePaymentDto } from './order.dto.js';
 import { OrderService } from './order.service.js';
 
 @Controller('orders')
@@ -32,7 +29,7 @@ export class OrderController {
   ) {
     return this.orderService.createOrder(organizationId, dto);
   }
-   @Post(':id/payments')
+    @Post(':id/payments')
   @RequirePermission('order.update')
   createPayment(
     @OrganizationId() organizationId: number,

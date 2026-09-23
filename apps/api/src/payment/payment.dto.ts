@@ -39,7 +39,7 @@ export class RecordPaymentDto {
   @IsString()
   transactionId?: string;
 
-  @IsOptional()
-  @IsIn(PAYMENT_STATUSES)
-  status?: PaymentStatusInput;
+  // @IsOptional()
+  // @IsIn(PAYMENT_STATUSES)
+  // status?: PaymentStatusInput;
 }

@@ -3,8 +3,8 @@ import {
   IsInt,
   IsOptional,
   IsPositive,
+  IsString,
 } from 'class-validator';
-
 const PAYMENT_METHODS = [
   'COD',
   'BKASH',
@@ -28,6 +28,14 @@ export class CreateOrderDto {
   @IsOptional()
   @IsIn(PAYMENT_METHODS)
   paymentMethod?: PaymentMethodInput;
+
+  @IsOptional()
+@IsIn(['FLAT', 'PERCENTAGE'])
+discountType?: 'FLAT' | 'PERCENTAGE';
+
+@IsOptional()
+@IsPositive()
+discountValue?: number;
 }
 export class CreatePaymentDto {
   @IsPositive()
@@ -37,5 +45,7 @@ export class CreatePaymentDto {
   method!: PaymentMethodInput;
 
   @IsOptional()
+  @IsString()
   transactionId?: string;
 }
+

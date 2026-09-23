@@ -1,3 +1,4 @@
+
 import {
   BadRequestException,
   ConflictException,
@@ -21,6 +22,28 @@ function calculateShipping(city: string): number {
     : SHIPPING_OUTSIDE_DHAKA;
 }
 
+function calculateDiscount(
+  subtotal: number,
+  type?: 'FLAT' | 'PERCENTAGE',
+  value?: number,
+): number {
+  if (!type || value === undefined) {
+    return 0;
+  }
+
+  if (value <= 0) {
+    return 0;
+  }
+
+  if (type === 'FLAT') {
+    return Math.min(value, subtotal);
+  }
+
+  const discount = (subtotal * value) / 100;
+
+  return Math.min(discount, subtotal);
+}
+
 function money(value: number): Numeric<12, 2> {
   return value.toFixed(2) as Numeric<12, 2>;
 }
@@ -33,11 +56,11 @@ export class OrderService {
       String(now.getFullYear()) +
       String(now.getMonth() + 1).padStart(2, '0') +
       String(now.getDate()).padStart(2, '0');
+
     const prefix = `ORD-${datePart}-`;
 
-    // NOTE: fetches every order to compute today's sequence. Fine at
-    // current data volume; replace with a counter/sequence table later.
     const allOrders = await db.orm.public.Order.all();
+
     const todaysCount = allOrders.filter((o) =>
       o.orderNumber.startsWith(prefix),
     ).length;
@@ -53,26 +76,61 @@ export class OrderService {
     return orderNumber;
   }
 
-  async createOrder(organizationId: number, dto: CreateOrderDto) {
+  async createOrder(
+    organizationId: number,
+    dto: CreateOrderDto,
+  ) {
     const customer = await db.orm.public.Customer
-      .where({ id: dto.customerId, organizationId })
+      .where({
+        id: dto.customerId,
+        organizationId,
+      })
       .first();
-    if (!customer) throw new NotFoundException('Customer not found');
+
+    if (!customer) {
+      throw new NotFoundException(
+        'Customer not found',
+      );
+    }
 
     const address = await db.orm.public.CustomerAddress
-      .where({ id: dto.addressId, customerId: customer.id })
+      .where({
+        id: dto.addressId,
+        customerId: customer.id,
+      })
       .first();
-    if (!address) throw new NotFoundException('Address not found');
+
+    if (!address) {
+      throw new NotFoundException(
+        'Address not found',
+      );
+    }
 
     const cart = await db.orm.public.Cart
-      .where({ organizationId, customerId: customer.id, status: 'ACTIVE' })
+      .where({
+        organizationId,
+        customerId: customer.id,
+        status: 'ACTIVE',
+      })
       .first();
-    if (!cart) throw new NotFoundException('Active cart not found');
+
+    if (!cart) {
+      throw new NotFoundException(
+        'Active cart not found',
+      );
+    }
 
     const cartItems = await db.orm.public.CartItem
-      .where({ cartId: cart.id })
+      .where({
+        cartId: cart.id,
+      })
       .all();
-    if (cartItems.length === 0) throw new BadRequestException('Cart is empty');
+
+    if (cartItems.length === 0) {
+      throw new BadRequestException(
+        'Cart is empty',
+      );
+    }
 
     const lines: {
       productVariantId: number;
@@ -82,25 +140,41 @@ export class OrderService {
       unitPrice: number;
       lineTotal: number;
     }[] = [];
+
     let subtotal = 0;
 
     for (const item of cartItems) {
-      const variant = await db.orm.public.ProductVariant
-        .where({ id: item.productVariantId })
-        .first();
+      const variant =
+        await db.orm.public.ProductVariant
+          .where({
+            id: item.productVariantId,
+          })
+          .first();
+
       if (!variant) {
         throw new NotFoundException(
           `Product variant ${item.productVariantId} not found`,
         );
       }
 
-      const product = await db.orm.public.Product
-        .where({ id: variant.productId, organizationId })
-        .first();
-      if (!product) throw new NotFoundException('Product not found');
+      const product =
+        await db.orm.public.Product
+          .where({
+            id: variant.productId,
+            organizationId,
+          })
+          .first();
+
+      if (!product) {
+        throw new NotFoundException(
+          'Product not found',
+        );
+      }
 
       const unitPrice = Number(variant.price);
-      const lineTotal = unitPrice * item.quantity;
+      const lineTotal =
+        unitPrice * item.quantity;
+
       subtotal += lineTotal;
 
       lines.push({
@@ -113,12 +187,27 @@ export class OrderService {
       });
     }
 
-    const shippingTotal = calculateShipping(address.city);
-    const grandTotal = subtotal + shippingTotal;
+    const discountTotal = calculateDiscount(
+      subtotal,
+      dto.discountType,
+      dto.discountValue,
+    );
 
-    const runTransaction = async (orderNumber: string) =>
+    const shippingTotal =
+      calculateShipping(address.city);
+
+    const taxTotal = 0;
+
+    const grandTotal =
+      subtotal -
+      discountTotal +
+      shippingTotal +
+      taxTotal;
+
+    const runTransaction = async (
+      orderNumber: string,
+    ) =>
       db.transaction(async (tx) => {
-        // 1) Reserve stock for every line (all-or-nothing).
         const reservations: {
           stockId: number;
           branchId: number;
@@ -127,102 +216,185 @@ export class OrderService {
         }[] = [];
 
         for (const line of lines) {
-          const stocks = await tx.orm.public.InventoryStock
-            .where({ organizationId, productVariantId: line.productVariantId })
-            .all();
+          const stocks =
+            await tx.orm.public.InventoryStock
+              .where({
+                organizationId,
+                productVariantId:
+                  line.productVariantId,
+              })
+              .all();
 
           const best = stocks
-            .map((s) => ({ s, available: s.quantity - s.reservedQuantity }))
-            .filter((x) => x.available >= line.quantity)
-            .sort((a, b) => b.available - a.available)[0];
+            .map((s) => ({
+              s,
+              available:
+                s.quantity -
+                s.reservedQuantity,
+            }))
+            .filter(
+              (x) =>
+                x.available >= line.quantity,
+            )
+            .sort(
+              (a, b) =>
+                b.available - a.available,
+            )[0];
 
           if (!best) {
-            throw new BadRequestException(`Insufficient stock for ${line.sku}`);
+            throw new BadRequestException(
+              `Insufficient stock for ${line.sku}`,
+            );
           }
 
-          const updated = await tx.orm.public.InventoryStock
-            .where({
-              id: best.s.id,
-              reservedQuantity: best.s.reservedQuantity,
-              quantity: best.s.quantity,
-            })
-            .update({ reservedQuantity: best.s.reservedQuantity + line.quantity });
+          const updated =
+            await tx.orm.public.InventoryStock
+              .where({
+                id: best.s.id,
+                reservedQuantity:
+                  best.s.reservedQuantity,
+                quantity: best.s.quantity,
+              })
+              .update({
+                reservedQuantity:
+                  best.s.reservedQuantity +
+                  line.quantity,
+              });
 
           if (!updated) {
-            throw new ConflictException(`Failed to reserve stock for ${line.sku}`);
+            throw new ConflictException(
+              `Failed to reserve stock for ${line.sku}`,
+            );
           }
 
           reservations.push({
             stockId: best.s.id,
             branchId: best.s.branchId,
-            productVariantId: line.productVariantId,
+            productVariantId:
+              best.s.productVariantId,
             quantity: line.quantity,
           });
         }
 
-        // 2) Create the order.
-        const order = await tx.orm.public.Order.create({
-          organizationId,
-          customerId: customer.id,
-          orderNumber,
-          status: 'PENDING',
-          paymentStatus: 'PENDING',
-          paymentMethod: dto.paymentMethod ?? 'COD',
-          channel: 'ONLINE',
-          currency: cart.currency ?? 'BDT',
-          subtotal: money(subtotal),
-          discountTotal: money(0),
-          shippingTotal: money(shippingTotal),
-          taxTotal: money(0),
-          grandTotal: money(grandTotal),
-          customerName: customer.name ?? address.recipientName,
-          customerPhone: customer.phone,
-          customerEmail: customer.email ?? undefined,
-          shippingRecipientName: address.recipientName,
-          shippingPhone: address.phone,
-          shippingAddressLine1: address.addressLine1,
-          shippingAddressLine2: address.addressLine2 ?? undefined,
-          shippingCity: address.city,
-          shippingDistrict: address.district,
-          shippingPostalCode: address.postalCode ?? undefined,
-          shippingCountry: address.country ?? 'BD',
-        });
+        const order =
+          await tx.orm.public.Order.create({
+            organizationId,
+            customerId: customer.id,
+            orderNumber,
 
-        // 3) Order items.
+            status: 'PENDING',
+            paymentStatus: 'PENDING',
+
+            paymentMethod:
+              dto.paymentMethod ?? 'COD',
+            channel: 'ONLINE',
+
+            currency:
+              cart.currency ?? 'BDT',
+
+            subtotal: money(subtotal),
+            discountTotal:
+              money(discountTotal),
+            shippingTotal:
+              money(shippingTotal),
+            taxTotal: money(taxTotal),
+            grandTotal:
+              money(grandTotal),
+
+            customerName:
+              customer.name ??
+              address.recipientName,
+
+            customerPhone:
+              customer.phone,
+
+            customerEmail:
+              customer.email ??
+              undefined,
+
+            shippingRecipientName:
+              address.recipientName,
+
+            shippingPhone:
+              address.phone,
+
+            shippingAddressLine1:
+              address.addressLine1,
+
+            shippingAddressLine2:
+              address.addressLine2 ??
+              undefined,
+
+            shippingCity:
+              address.city,
+
+            shippingDistrict:
+              address.district,
+
+            shippingPostalCode:
+              address.postalCode ??
+              undefined,
+
+            shippingCountry:
+              address.country ?? 'BD',
+          });
+
         for (const line of lines) {
           await tx.orm.public.OrderItem.create({
             orderId: order.id,
-            productVariantId: line.productVariantId,
-            productName: line.productName,
+            productVariantId:
+              line.productVariantId,
+
+            productName:
+              line.productName,
+
             sku: line.sku,
+
             quantity: line.quantity,
-            unitPrice: money(line.unitPrice),
-            lineTotal: money(line.lineTotal),
+
+            unitPrice:
+              money(line.unitPrice),
+
+            lineTotal:
+              money(line.lineTotal),
           });
         }
 
-        // 4) Audit trail: one stockMovement per reservation.
-        // 'ADJUSTMENT' is used because the type enum has no RESERVE value.
         for (const r of reservations) {
           await tx.orm.public.StockMovement.create({
             organizationId,
             branchId: r.branchId,
-            productVariantId: r.productVariantId,
-            inventoryStockId: r.stockId,
+            productVariantId:
+              r.productVariantId,
+            inventoryStockId:
+              r.stockId,
+
             type: 'ADJUSTMENT',
+
             quantity: r.quantity,
+
             referenceType: 'ORDER',
             referenceId: order.id,
-            note: `Reserved for ${orderNumber}`,
+
+            note:
+              `Reserved for ${orderNumber}`,
           });
         }
 
-        // 5) Close the cart.
-        const cartUpdated = await tx.orm.public.Cart
-          .where({ id: cart.id, status: 'ACTIVE' })
-          .update({ status: 'CHECKED_OUT' });
+        const cartUpdated =
+          await tx.orm.public.Cart
+            .where({
+              id: cart.id,
+              status: 'ACTIVE',
+            })
+            .update({
+              status: 'CHECKED_OUT',
+            });
+
         if (!cartUpdated) {
-          throw new ConflictException('Failed to close cart after checkout');
+          throw new ConflictException(
+            'Failed to close cart after checkout',
+          );
         }
 
         return order.id;
@@ -230,349 +402,85 @@ export class OrderService {
 
     let orderId: number | undefined;
 
-    for (let attempt = 1; attempt <= 5; attempt++) {
-      const orderNumber = await this.generateOrderNumber();
+    for (
+      let attempt = 1;
+      attempt <= 5;
+      attempt++
+    ) {
+      const orderNumber =
+        await this.generateOrderNumber();
 
       try {
-        orderId = await runTransaction(orderNumber);
+        orderId =
+          await runTransaction(
+            orderNumber,
+          );
+
         break;
       } catch (error) {
-        if (error instanceof BadRequestException) {
-          // Genuinely out of stock — retrying won't help.
+        if (
+          error instanceof
+          BadRequestException
+        ) {
           throw error;
         }
 
         const message =
-          error instanceof Error ? error.message : String(error);
+          error instanceof Error
+            ? error.message
+            : String(error);
 
         const isOrderNumberClash =
-          message.includes('order_orderNumber_key') ||
-          message.includes('duplicate key value');
+          message.includes(
+            'order_orderNumber_key',
+          ) ||
+          message.includes(
+            'duplicate key value',
+          );
 
-        const isReserveConflict = error instanceof ConflictException;
+        const isReserveConflict =
+          error instanceof
+          ConflictException;
 
-        if ((!isOrderNumberClash && !isReserveConflict) || attempt === 5) {
+        if (
+          (!isOrderNumberClash &&
+            !isReserveConflict) ||
+          attempt === 5
+        ) {
           throw error;
         }
-        // Either the order number or a stock row was taken by a
-        // concurrent request; loop and try again with fresh reads.
       }
     }
 
     if (orderId === undefined) {
-      throw new ConflictException('Could not complete order after retries');
-    }
-
-    return this.getOrder(organizationId, orderId);
-  }
-
-  async confirmOrder(organizationId: number, orderId: number) {
-    const order = await db.orm.public.Order
-      .where({ id: orderId, organizationId })
-      .first();
-
-    if (!order) {
-      throw new NotFoundException('Order not found');
-    }
-
-    if (order.status !== 'PENDING') {
-      throw new BadRequestException(
-        `Only PENDING orders can be confirmed (current: ${order.status})`,
+      throw new ConflictException(
+        'Could not complete order after retries',
       );
     }
 
-    const updated = await db.orm.public.Order
-      .where({
-        id: order.id,
-        organizationId,
-        status: 'PENDING',
-      })
-      .update({ status: 'CONFIRMED' });
-
-    if (!updated) {
-      throw new ConflictException('Order status changed, please retry');
-    }
-
-    return this.getOrder(organizationId, order.id);
+    return this.getOrder(
+      organizationId,
+      orderId,
+    );
   }
 
-  async cancelOrder(organizationId: number, orderId: number) {
-    const order = await db.orm.public.Order
-      .where({ id: orderId, organizationId })
-      .first();
-
-    if (!order) {
-      throw new NotFoundException('Order not found');
-    }
-
-    if (order.status !== 'PENDING' && order.status !== 'CONFIRMED') {
-      throw new BadRequestException(
-        `Order cannot be cancelled (current: ${order.status})`,
-      );
-    }
-
-    await db.transaction(async (tx) => {
-      const updated = await tx.orm.public.Order
-        .where({
-          id: order.id,
-          organizationId,
-          status: order.status,
-        })
-        .update({ status: 'CANCELLED' });
-
-      if (!updated) {
-        throw new ConflictException(
-          'Order status changed, please retry',
-        );
-      }
-
-      const reserves = await tx.orm.public.StockMovement
-        .where({
-          organizationId,
-          referenceType: 'ORDER',
-          referenceId: order.id,
-        })
-        .all();
-
-      for (const r of reserves) {
-        const stock = await tx.orm.public.InventoryStock
-          .where({ id: r.inventoryStockId })
-          .first();
-
-        if (!stock) {
-          throw new NotFoundException('Inventory stock not found');
-        }
-
-        const released = await tx.orm.public.InventoryStock
-          .where({ id: stock.id })
-          .update({
-            reservedQuantity: Math.max(
-              0,
-              stock.reservedQuantity - r.quantity,
-            ),
-          });
-
-        if (!released) {
-          throw new ConflictException(
-            'Failed to release reserved stock',
-          );
-        }
-
-        await tx.orm.public.StockMovement.create({
-          organizationId,
-          branchId: r.branchId,
-          productVariantId: r.productVariantId,
-          inventoryStockId: stock.id,
-          type: 'ADJUSTMENT',
-          quantity: -r.quantity,
-          referenceType: 'ORDER_CANCEL',
-          referenceId: order.id,
-          note: `Released for ${order.orderNumber}`,
-        });
-      }
-    });
-
-    return this.getOrder(organizationId, order.id);
-  }
-
-  async shipOrder(organizationId: number, orderId: number) {
-    const order = await db.orm.public.Order
-      .where({ id: orderId, organizationId })
-      .first();
-
-    if (!order) {
-      throw new NotFoundException('Order not found');
-    }
-
-    if (order.status !== 'CONFIRMED') {
-      throw new BadRequestException(
-        `Only CONFIRMED orders can be shipped (current: ${order.status})`,
-      );
-    }
-
-    const updated = await db.orm.public.Order
-      .where({ id: order.id, organizationId, status: 'CONFIRMED' })
-      .update({ status: 'SHIPPED' });
-
-    if (!updated) {
-      throw new ConflictException('Order status changed, please retry');
-    }
-
-    return this.getOrder(organizationId, order.id);
-  }
-
-  async deliverOrder(organizationId: number, orderId: number) {
-    const order = await db.orm.public.Order
-      .where({ id: orderId, organizationId })
-      .first();
-
-    if (!order) {
-      throw new NotFoundException('Order not found');
-    }
-
-    if (order.status !== 'SHIPPED') {
-      throw new BadRequestException(
-        `Only SHIPPED orders can be delivered (current: ${order.status})`,
-      );
-    }
-
-    await db.transaction(async (tx) => {
-      const updated = await tx.orm.public.Order
-        .where({
-          id: order.id,
-          organizationId,
-          status: 'SHIPPED',
-        })
-        .update({ status: 'DELIVERED' });
-
-      if (!updated) {
-        throw new ConflictException(
-          'Order status changed, please retry',
-        );
-      }
-
-      const orderItems = await tx.orm.public.OrderItem
-        .where({ orderId: order.id })
-        .all();
-
-      for (const item of orderItems) {
-        const movements = await tx.orm.public.StockMovement
-          .where({
-            organizationId,
-            referenceType: 'ORDER',
-            referenceId: order.id,
-            productVariantId: item.productVariantId,
-          })
-          .all();
-
-        let remaining = item.quantity;
-
-        for (const movement of movements) {
-          if (remaining <= 0) {
-            break;
-          }
-
-          const reservedQty = Math.min(remaining, movement.quantity);
-
-          const stock = await tx.orm.public.InventoryStock
-            .where({ id: movement.inventoryStockId })
-            .first();
-
-          if (!stock) {
-            throw new NotFoundException(
-              `Inventory stock ${movement.inventoryStockId} not found`,
-            );
-          }
-
-          if (stock.reservedQuantity < reservedQty) {
-            throw new ConflictException(
-              `Invalid reserved stock state for product variant ${item.productVariantId}`,
-            );
-          }
-
-          if (stock.quantity < reservedQty) {
-            throw new ConflictException(
-              `Insufficient physical stock for product variant ${item.productVariantId}`,
-            );
-          }
-
-          const stockUpdated = await tx.orm.public.InventoryStock
-            .where({
-              id: stock.id,
-              quantity: stock.quantity,
-              reservedQuantity: stock.reservedQuantity,
-            })
-            .update({
-              quantity: stock.quantity - reservedQty,
-              reservedQuantity: stock.reservedQuantity - reservedQty,
-            });
-
-          if (!stockUpdated) {
-            throw new ConflictException(
-              'Inventory changed while completing delivery, please retry',
-            );
-          }
-
-          await tx.orm.public.StockMovement.create({
-            organizationId,
-            branchId: movement.branchId,
-            productVariantId: movement.productVariantId,
-            inventoryStockId: stock.id,
-            type: 'OUT',
-            quantity: -reservedQty,
-            referenceType: 'ORDER_DELIVERY',
-            referenceId: order.id,
-            note: `Sold for ${order.orderNumber}`,
-          });
-
-          remaining -= reservedQty;
-        }
-
-        if (remaining > 0) {
-          throw new ConflictException(
-            `Could not settle reserved stock for ${item.sku}`,
-          );
-        }
-      }
-
-      // COD is collected at the door on delivery.
-      // Non-COD methods go through POST /orders/:id/payments.
-      if (
-        order.paymentMethod === 'COD' &&
-        order.paymentStatus !== 'PAID'
-      ) {
-        await tx.orm.public.Payment.create({
-          orderId: order.id,
-          amount: order.grandTotal,
-          currency: order.currency,
-          status: 'PAID',
-          method: 'COD',
-        });
-
-        const paymentUpdated = await tx.orm.public.Order
-          .where({
-            id: order.id,
-            organizationId,
-          })
-          .update({ paymentStatus: 'PAID' });
-
-        if (!paymentUpdated) {
-          throw new ConflictException(
-            'Failed to update payment status',
-          );
-        }
-      }
-    });
-
-    return this.getOrder(organizationId, order.id);
-  }
-
-  async getOrder(organizationId: number, orderId: number) {
-    const order = await db.orm.public.Order
-      .where({ id: orderId, organizationId })
-      .first();
-
-    if (!order) {
-      throw new NotFoundException('Order not found');
-    }
-
-    const items = await db.orm.public.OrderItem
-      .where({ orderId: order.id })
-      .all();
-
-    return { ...order, items };
-  }
   async createPayment(
     organizationId: number,
     orderId: number,
     dto: CreatePaymentDto,
   ) {
-    const order = await db.orm.public.Order
-      .where({ id: orderId, organizationId })
-      .first();
+    const order =
+      await db.orm.public.Order
+        .where({
+          id: orderId,
+          organizationId,
+        })
+        .first();
 
     if (!order) {
-      throw new NotFoundException('Order not found');
+      throw new NotFoundException(
+        'Order not found',
+      );
     }
 
     if (order.status === 'CANCELLED') {
@@ -587,20 +495,71 @@ export class OrderService {
       );
     }
 
-    if (dto.amount > Number(order.grandTotal)) {
+    // Prevent duplicate transaction ID
+    if (dto.transactionId) {
+      const existingPayment =
+        await db.orm.public.Payment
+          .where({
+            transactionId:
+              dto.transactionId,
+          })
+          .first();
+
+      if (existingPayment) {
+        throw new ConflictException(
+          'A payment with this transaction ID already exists',
+        );
+      }
+    }
+
+    const existingPayments =
+      await db.orm.public.Payment
+        .where({
+          orderId: order.id,
+        })
+        .all();
+
+    const paidAmount =
+      existingPayments
+        .filter(
+          (payment) =>
+            payment.status === 'PAID' ||
+            payment.status ===
+              'AUTHORIZED',
+        )
+        .reduce(
+          (total, payment) =>
+            total +
+            Number(payment.amount),
+          0,
+        );
+
+    const orderTotal =
+      Number(order.grandTotal);
+
+    const remainingAmount =
+      orderTotal - paidAmount;
+
+    if (dto.amount > remainingAmount) {
       throw new BadRequestException(
-        'Payment amount cannot exceed order total',
+        `Payment amount exceeds remaining balance of ${remainingAmount.toFixed(2)}`,
       );
     }
 
-    const payment = await db.orm.public.Payment.create({
-      orderId: order.id,
-      amount: money(dto.amount),
-      currency: order.currency,
-      status: 'PAID',
-      method: dto.method,
-      transactionId: dto.transactionId ?? undefined,
-    });
+    const payment =
+      await db.orm.public.Payment.create({
+        orderId: order.id,
+        amount: money(dto.amount),
+        currency: order.currency,
+        status: 'PAID',
+        method: dto.method,
+        transactionId:
+          dto.transactionId ??
+          undefined,
+      });
+
+    const newPaidAmount =
+      paidAmount + dto.amount;
 
     await db.orm.public.Order
       .where({
@@ -608,12 +567,459 @@ export class OrderService {
         organizationId,
       })
       .update({
-        paymentStatus: 'PAID',
+        paymentStatus:
+          newPaidAmount >= orderTotal
+            ? 'PAID'
+            : 'PENDING',
       });
 
     return payment;
   }
-  async listOrders(organizationId: number) {
-    return db.orm.public.Order.where({ organizationId }).all();
+
+  async confirmOrder(
+    organizationId: number,
+    orderId: number,
+  ) {
+    const order =
+      await db.orm.public.Order
+        .where({
+          id: orderId,
+          organizationId,
+        })
+        .first();
+
+    if (!order) {
+      throw new NotFoundException(
+        'Order not found',
+      );
+    }
+
+    if (order.status !== 'PENDING') {
+      throw new BadRequestException(
+        `Only PENDING orders can be confirmed (current: ${order.status})`,
+      );
+    }
+
+    const updated =
+      await db.orm.public.Order
+        .where({
+          id: order.id,
+          organizationId,
+          status: 'PENDING',
+        })
+        .update({
+          status: 'CONFIRMED',
+        });
+
+    if (!updated) {
+      throw new ConflictException(
+        'Order status changed, please retry',
+      );
+    }
+
+    return this.getOrder(
+      organizationId,
+      order.id,
+    );
+  }
+
+  async cancelOrder(
+    organizationId: number,
+    orderId: number,
+  ) {
+    const order =
+      await db.orm.public.Order
+        .where({
+          id: orderId,
+          organizationId,
+        })
+        .first();
+
+    if (!order) {
+      throw new NotFoundException(
+        'Order not found',
+      );
+    }
+
+    if (
+      order.status !== 'PENDING' &&
+      order.status !== 'CONFIRMED'
+    ) {
+      throw new BadRequestException(
+        `Order cannot be cancelled (current: ${order.status})`,
+      );
+    }
+
+    await db.transaction(async (tx) => {
+      const updated =
+        await tx.orm.public.Order
+          .where({
+            id: order.id,
+            organizationId,
+            status: order.status,
+          })
+          .update({
+            status: 'CANCELLED',
+          });
+
+      if (!updated) {
+        throw new ConflictException(
+          'Order status changed, please retry',
+        );
+      }
+
+      const reserves =
+        await tx.orm.public.StockMovement
+          .where({
+            organizationId,
+            referenceType: 'ORDER',
+            referenceId: order.id,
+          })
+          .all();
+
+      for (const r of reserves) {
+        const stock =
+          await tx.orm.public.InventoryStock
+            .where({
+              id: r.inventoryStockId,
+            })
+            .first();
+
+        if (!stock) {
+          throw new NotFoundException(
+            'Inventory stock not found',
+          );
+        }
+
+        const released =
+          await tx.orm.public.InventoryStock
+            .where({
+              id: stock.id,
+            })
+            .update({
+              reservedQuantity:
+                Math.max(
+                  0,
+                  stock.reservedQuantity -
+                    r.quantity,
+                ),
+            });
+
+        if (!released) {
+          throw new ConflictException(
+            'Failed to release reserved stock',
+          );
+        }
+
+        await tx.orm.public.StockMovement.create({
+          organizationId,
+          branchId: r.branchId,
+          productVariantId:
+            r.productVariantId,
+          inventoryStockId:
+            stock.id,
+
+          type: 'ADJUSTMENT',
+          quantity: -r.quantity,
+
+          referenceType: 'ORDER_CANCEL',
+          referenceId: order.id,
+
+          note:
+            `Released for ${order.orderNumber}`,
+        });
+      }
+    });
+
+    return this.getOrder(
+      organizationId,
+      order.id,
+    );
+  }
+
+  async shipOrder(
+    organizationId: number,
+    orderId: number,
+  ) {
+    const order =
+      await db.orm.public.Order
+        .where({
+          id: orderId,
+          organizationId,
+        })
+        .first();
+
+    if (!order) {
+      throw new NotFoundException(
+        'Order not found',
+      );
+    }
+
+    if (order.status !== 'CONFIRMED') {
+      throw new BadRequestException(
+        `Only CONFIRMED orders can be shipped (current: ${order.status})`,
+      );
+    }
+
+    const updated =
+      await db.orm.public.Order
+        .where({
+          id: order.id,
+          organizationId,
+          status: 'CONFIRMED',
+        })
+        .update({
+          status: 'SHIPPED',
+        });
+
+    if (!updated) {
+      throw new ConflictException(
+        'Order status changed, please retry',
+      );
+    }
+
+    return this.getOrder(
+      organizationId,
+      order.id,
+    );
+  }
+
+  async deliverOrder(
+    organizationId: number,
+    orderId: number,
+  ) {
+    const order =
+      await db.orm.public.Order
+        .where({
+          id: orderId,
+          organizationId,
+        })
+        .first();
+
+    if (!order) {
+      throw new NotFoundException(
+        'Order not found',
+      );
+    }
+
+    if (order.status !== 'SHIPPED') {
+      throw new BadRequestException(
+        `Only SHIPPED orders can be delivered (current: ${order.status})`,
+      );
+    }
+
+    await db.transaction(async (tx) => {
+      const updated =
+        await tx.orm.public.Order
+          .where({
+            id: order.id,
+            organizationId,
+            status: 'SHIPPED',
+          })
+          .update({
+            status: 'DELIVERED',
+          });
+
+      if (!updated) {
+        throw new ConflictException(
+          'Order status changed, please retry',
+        );
+      }
+
+      const orderItems =
+        await tx.orm.public.OrderItem
+          .where({
+            orderId: order.id,
+          })
+          .all();
+
+      for (const item of orderItems) {
+        const movements =
+          await tx.orm.public.StockMovement
+            .where({
+              organizationId,
+              referenceType: 'ORDER',
+              referenceId: order.id,
+              productVariantId:
+                item.productVariantId,
+            })
+            .all();
+
+        let remaining =
+          item.quantity;
+
+        for (const movement of movements) {
+          if (remaining <= 0) {
+            break;
+          }
+
+          const reservedQty =
+            Math.min(
+              remaining,
+              movement.quantity,
+            );
+
+          const stock =
+            await tx.orm.public.InventoryStock
+              .where({
+                id: movement.inventoryStockId,
+              })
+              .first();
+
+          if (!stock) {
+            throw new NotFoundException(
+              `Inventory stock ${movement.inventoryStockId} not found`,
+            );
+          }
+
+          if (
+            stock.reservedQuantity <
+            reservedQty
+          ) {
+            throw new ConflictException(
+              `Invalid reserved stock state for product variant ${item.productVariantId}`,
+            );
+          }
+
+          if (
+            stock.quantity <
+            reservedQty
+          ) {
+            throw new ConflictException(
+              `Insufficient physical stock for product variant ${item.productVariantId}`,
+            );
+          }
+
+          const stockUpdated =
+            await tx.orm.public.InventoryStock
+              .where({
+                id: stock.id,
+                quantity:
+                  stock.quantity,
+                reservedQuantity:
+                  stock.reservedQuantity,
+              })
+              .update({
+                quantity:
+                  stock.quantity -
+                  reservedQty,
+
+                reservedQuantity:
+                  stock.reservedQuantity -
+                  reservedQty,
+              });
+
+          if (!stockUpdated) {
+            throw new ConflictException(
+              'Inventory changed while completing delivery, please retry',
+            );
+          }
+
+          await tx.orm.public.StockMovement.create({
+            organizationId,
+            branchId:
+              movement.branchId,
+            productVariantId:
+              movement.productVariantId,
+            inventoryStockId:
+              stock.id,
+
+            type: 'OUT',
+            quantity: -reservedQty,
+
+            referenceType:
+              'ORDER_DELIVERY',
+            referenceId: order.id,
+
+            note:
+              `Sold for ${order.orderNumber}`,
+          });
+
+          remaining -= reservedQty;
+        }
+
+        if (remaining > 0) {
+          throw new ConflictException(
+            `Could not settle reserved stock for ${item.sku}`,
+          );
+        }
+      }
+
+      if (
+        order.paymentMethod === 'COD' &&
+        order.paymentStatus !== 'PAID'
+      ) {
+        await tx.orm.public.Payment.create({
+          orderId: order.id,
+          amount: order.grandTotal,
+          currency: order.currency,
+          status: 'PAID',
+          method: 'COD',
+        });
+
+        const paymentUpdated =
+          await tx.orm.public.Order
+            .where({
+              id: order.id,
+              organizationId,
+            })
+            .update({
+              paymentStatus: 'PAID',
+            });
+
+        if (!paymentUpdated) {
+          throw new ConflictException(
+            'Failed to update payment status',
+          );
+        }
+      }
+    });
+
+    return this.getOrder(
+      organizationId,
+      order.id,
+    );
+  }
+
+  async getOrder(
+    organizationId: number,
+    orderId: number,
+  ) {
+    const order =
+      await db.orm.public.Order
+        .where({
+          id: orderId,
+          organizationId,
+        })
+        .first();
+
+    if (!order) {
+      throw new NotFoundException(
+        'Order not found',
+      );
+    }
+
+    const items =
+      await db.orm.public.OrderItem
+        .where({
+          orderId: order.id,
+        })
+        .all();
+
+    return {
+      ...order,
+      items,
+    };
+  }
+
+  async listOrders(
+    organizationId: number,
+  ) {
+    return db.orm.public.Order
+      .where({
+        organizationId,
+      })
+      .all();
   }
 }
+
