@@ -81,25 +81,25 @@ enum OrderChannel {
 }
 
 model Order {
-  id                Int               @id @default(autoincrement())
-  organizationId    Int
-  customerId        Int?
-  orderNumber      String            @unique
-  status             OrderStatus      @default(PENDING)
-  paymentStatus      PaymentStatus    @default(PENDING)
-  paymentMethod      PaymentMethod    @default(COD)
-  channel            OrderChannel     @default(ONLINE)
-  currency           String            @default("BDT")
+  id                    Int               @id @default(autoincrement())
+  organizationId        Int
+  customerId            Int?
+  orderNumber           String            @unique
+  status                OrderStatus       @default(PENDING)
+  paymentStatus         PaymentStatus     @default(PENDING)
+  paymentMethod         PaymentMethod     @default(COD)
+  channel               OrderChannel      @default(ONLINE)
+  currency              String            @default("BDT")
 
-  subtotal           Numeric(12, 2)
-  discountTotal      Numeric(12, 2)
-  shippingTotal      Numeric(12, 2)
-  taxTotal           Numeric(12, 2)
-  grandTotal         Numeric(12, 2)
+  subtotal              Numeric(12, 2)
+  discountTotal         Numeric(12, 2)
+  shippingTotal         Numeric(12, 2)
+  taxTotal              Numeric(12, 2)
+  grandTotal             Numeric(12, 2)
 
-  customerName       String
-  customerPhone      String
-  customerEmail      String?
+  customerName          String
+  customerPhone         String
+  customerEmail         String?
 
   shippingRecipientName String
   shippingPhone         String
@@ -108,21 +108,21 @@ model Order {
   shippingCity          String
   shippingDistrict      String
   shippingPostalCode    String?
-  shippingCountry       String        @default("BD")
+  shippingCountry       String            @default("BD")
 
-  createdAt          TimestamptzString @default(now())
+  createdAt             TimestamptzString @default(now())
 
-  organization       Organization      @relation(fields: [organizationId], references: [id])
-  customer           Customer?         @relation(fields: [customerId], references: [id])
-  items              OrderItem[]
-  payments           Payment[]
+  organization          Organization      @relation(fields: [organizationId], references: [id])
+  customer              Customer?         @relation(fields: [customerId], references: [id])
+  items                 OrderItem[]
+  payments              Payment[]
+  invoice               Invoice?
 
   @@index([organizationId])
   @@index([organizationId, status])
   @@index([organizationId, customerId])
   @@index([customerId])
 }
-
 model OrderItem {
   id                Int               @id @default(autoincrement())
   orderId           Int
@@ -208,6 +208,11 @@ model User {
 
   @@index([organizationId])
 }
+
+
+
+
+
 
 model Role {
   id             Int               @id @default(autoincrement())
@@ -430,4 +435,31 @@ model CartItem {
   @@unique([cartId, productVariantId])
   @@index([cartId])
   @@index([productVariantId])
+}
+
+model Invoice {
+  id              Int               @id @default(autoincrement())
+  orderId         Int               @unique
+  invoiceNumber   String            @unique
+
+  currency        String            @default("BDT")
+
+  subtotal        Numeric(12, 2)
+  discountTotal   Numeric(12, 2)
+  shippingTotal   Numeric(12, 2)
+  taxTotal        Numeric(12, 2)
+  grandTotal      Numeric(12, 2)
+
+  customerName    String
+  customerPhone   String
+  customerEmail   String?
+
+  billingAddress  String?
+  shippingAddress String
+
+  createdAt       TimestamptzString @default(now())
+
+  order           Order             @relation(fields: [orderId], references: [id])
+
+  @@index([invoiceNumber])
 }
