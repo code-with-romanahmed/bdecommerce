@@ -16,6 +16,10 @@
       "model": "CartItem",
       "namespace": "public"
     },
+    "cashierAssignment": {
+      "model": "CashierAssignment",
+      "namespace": "public"
+    },
     "category": {
       "model": "Category",
       "namespace": "public"
@@ -707,6 +711,136 @@
               "table": "cartItem"
             }
           },
+          "CashierAssignment": {
+            "fields": {
+              "cashierId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "customerId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "endedAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "isActive": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
+              "organizationId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "startedAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "cashier": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "cashierId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "User",
+                  "namespace": "public"
+                }
+              },
+              "customer": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "customerId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Customer",
+                  "namespace": "public"
+                }
+              },
+              "organization": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "organizationId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Organization",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "cashierId": {
+                  "column": "cashierId"
+                },
+                "customerId": {
+                  "column": "customerId"
+                },
+                "endedAt": {
+                  "column": "endedAt"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "isActive": {
+                  "column": "isActive"
+                },
+                "organizationId": {
+                  "column": "organizationId"
+                },
+                "startedAt": {
+                  "column": "startedAt"
+                }
+              },
+              "namespaceId": "public",
+              "table": "cashierAssignment"
+            }
+          },
           "Category": {
             "fields": {
               "createdAt": {
@@ -872,6 +1006,13 @@
                   "namespaceId": "public",
                   "plane": "domain"
                 }
+              },
+              "userId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
               }
             },
             "relations": {
@@ -905,6 +1046,21 @@
                   "namespace": "public"
                 }
               },
+              "cashierAssignments": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "customerId"
+                  ]
+                },
+                "to": {
+                  "model": "CashierAssignment",
+                  "namespace": "public"
+                }
+              },
               "orders": {
                 "cardinality": "1:N",
                 "on": {
@@ -935,6 +1091,22 @@
                   "model": "Organization",
                   "namespace": "public"
                 }
+              },
+              "user": {
+                "cardinality": "N:1",
+                "nullable": true,
+                "on": {
+                  "localFields": [
+                    "userId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "User",
+                  "namespace": "public"
+                }
               }
             },
             "storage": {
@@ -959,6 +1131,9 @@
                 },
                 "status": {
                   "column": "status"
+                },
+                "userId": {
+                  "column": "userId"
                 }
               },
               "namespaceId": "public",
@@ -2074,6 +2249,21 @@
                   "namespace": "public"
                 }
               },
+              "cashierAssignments": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "organizationId"
+                  ]
+                },
+                "to": {
+                  "model": "CashierAssignment",
+                  "namespace": "public"
+                }
+              },
               "categories": {
                 "cardinality": "1:N",
                 "on": {
@@ -3143,6 +3333,37 @@
               }
             },
             "relations": {
+              "cashierAssignments": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "cashierId"
+                  ]
+                },
+                "to": {
+                  "model": "CashierAssignment",
+                  "namespace": "public"
+                }
+              },
+              "customer": {
+                "cardinality": "1:1",
+                "nullable": true,
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "userId"
+                  ]
+                },
+                "to": {
+                  "model": "Customer",
+                  "namespace": "public"
+                }
+              },
               "organization": {
                 "cardinality": "N:1",
                 "nullable": false,
@@ -3661,6 +3882,157 @@
                 }
               ]
             },
+            "cashierAssignment": {
+              "columns": {
+                "cashierId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "customerId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "endedAt": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "nativeType": "timestamptz",
+                  "nullable": true
+                },
+                "id": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "expression": "autoincrement()",
+                    "kind": "function"
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "isActive": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": true
+                  },
+                  "nativeType": "bool",
+                  "nullable": false
+                },
+                "organizationId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "startedAt": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [
+                {
+                  "source": {
+                    "columns": [
+                      "organizationId"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "cashierAssignment"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "organization"
+                  }
+                },
+                {
+                  "source": {
+                    "columns": [
+                      "cashierId"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "cashierAssignment"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "user"
+                  }
+                },
+                {
+                  "source": {
+                    "columns": [
+                      "customerId"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "cashierAssignment"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "customer"
+                  }
+                }
+              ],
+              "indexes": [
+                {
+                  "columns": [
+                    "cashierId"
+                  ],
+                  "name": "cashierAssignment_cashierId_idx_f55c4cfd",
+                  "prefix": "cashierAssignment_cashierId_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "cashierId",
+                    "isActive"
+                  ],
+                  "name": "cashierAssignment_cashierId_isActive_idx_4e2765fa",
+                  "prefix": "cashierAssignment_cashierId_isActive_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "customerId"
+                  ],
+                  "name": "cashierAssignment_customerId_idx_b2a8a46c",
+                  "prefix": "cashierAssignment_customerId_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "customerId",
+                    "isActive"
+                  ],
+                  "name": "cashierAssignment_customerId_isActive_idx_ff4775e0",
+                  "prefix": "cashierAssignment_customerId_isActive_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "organizationId"
+                  ],
+                  "name": "cashierAssignment_organizationId_idx_2e17ef41",
+                  "prefix": "cashierAssignment_organizationId_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": []
+            },
             "category": {
               "checks": [
                 {
@@ -3822,6 +4194,11 @@
                     "namespaceId": "public",
                     "plane": "storage"
                   }
+                },
+                "userId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": true
                 }
               },
               "foreignKeys": [
@@ -3839,6 +4216,22 @@
                     ],
                     "namespaceId": "public",
                     "tableName": "organization"
+                  }
+                },
+                {
+                  "source": {
+                    "columns": [
+                      "userId"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "customer"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "user"
                   }
                 }
               ],
@@ -3859,6 +4252,14 @@
                   "name": "customer_organizationId_idx_2e17ef41",
                   "prefix": "customer_organizationId_idx",
                   "unique": false
+                },
+                {
+                  "columns": [
+                    "userId"
+                  ],
+                  "name": "customer_userId_idx_a489d58a",
+                  "prefix": "customer_userId_idx",
+                  "unique": false
                 }
               ],
               "primaryKey": {
@@ -3867,6 +4268,11 @@
                 ]
               },
               "uniques": [
+                {
+                  "columns": [
+                    "userId"
+                  ]
+                },
                 {
                   "columns": [
                     "organizationId",
@@ -5915,7 +6321,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "414cc1d99229b2f1b85eeefb1db72b341f85f472597151cdcd4439da18c42e0b"
+    "storageHash": "75dbee7215bac47d94c6c67e8ecdfed2151c0b00e456f928b1fe5d211aef312d"
   },
   "capabilities": {
     "postgres": {

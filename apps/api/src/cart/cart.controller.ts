@@ -16,6 +16,8 @@ import { OrganizationId } from '../auth/organization-context.decorator.js';
 import { RequirePermission } from '../rbac/permission.decorator.js';
 import { PermissionGuard } from '../rbac/permission.guard.js';
 
+import { CartAccessGuard } from './cart-access.guard.js';
+
 import {
   AddCartItemDto,
   CreateCartDto,
@@ -24,8 +26,12 @@ import {
 
 import { CartService } from './cart.service.js';
 
+// ওয়্যারিং অর্ডার গুরুত্বপূর্ণ:
+// ১. JwtAuthGuard      -> request.authUser সেট করে
+// ২. PermissionGuard   -> "cart.read/cart.update পারমিশন আছে কিনা" (coarse)
+// ৩. CartAccessGuard   -> "এই নির্দিষ্ট cart/customer তোমার scope-এ পড়ে কিনা" (row-level)
 @Controller('carts')
-@UseGuards(JwtAuthGuard, PermissionGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard, CartAccessGuard)
 export class CartController {
   constructor(
     private readonly cartService: CartService,

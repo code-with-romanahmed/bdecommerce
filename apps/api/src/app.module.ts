@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { AuthModule } from './auth/auth.module.js';
 import { CartModule } from './cart/cart.module.js';
+import { CashierAssignmentModule } from './cashier/cashier-assignment-module.js';
 import { CustomerModule } from './customer/customer.module.js';
 import { InventoryModule } from './inventory/inventory.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
@@ -29,6 +29,7 @@ import { RedisModule } from './redis/redis.module.js';
     InventoryModule,
     CartModule,
     OrderModule,
+    CashierAssignmentModule,
   ],
   controllers: [AppController],
   providers: [AppService],

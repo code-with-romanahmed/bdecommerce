@@ -119,9 +119,11 @@ const rolePermissions: Record<string, string[]> = {
     'order.update',
   ],
 
-  CUSTOMER: [
+    CUSTOMER: [
     'product.read',
     'order.read',
+    'cart.read',
+    'cart.update',
   ],
 };
 

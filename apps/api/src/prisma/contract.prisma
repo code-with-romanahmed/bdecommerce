@@ -45,6 +45,7 @@ enum CartStatus {
   CHECKED_OUT
   ABANDONED
 }
+
 enum OrderStatus {
   PENDING
   CONFIRMED
@@ -95,7 +96,7 @@ model Order {
   discountTotal         Numeric(12, 2)
   shippingTotal         Numeric(12, 2)
   taxTotal              Numeric(12, 2)
-  grandTotal             Numeric(12, 2)
+  grandTotal            Numeric(12, 2)
 
   customerName          String
   customerPhone         String
@@ -115,7 +116,7 @@ model Order {
   organization          Organization      @relation(fields: [organizationId], references: [id])
   customer              Customer?         @relation(fields: [customerId], references: [id])
   items                 OrderItem[]
-  payments              Payment[]
+  payments               Payment[]
   invoice               Invoice?
 
   @@index([organizationId])
@@ -123,6 +124,7 @@ model Order {
   @@index([organizationId, customerId])
   @@index([customerId])
 }
+
 model OrderItem {
   id                Int               @id @default(autoincrement())
   orderId           Int
@@ -159,32 +161,34 @@ model Payment {
   @@index([orderId])
   @@index([transactionId])
 }
-model Organization {
-  id         Int               @id @default(autoincrement())
-  name       String
-  slug       String            @unique
-  type       OrganizationType  @default(BUSINESS)
-  status     RecordStatus      @default(ACTIVE)
-  createdAt  TimestamptzString @default(now())
 
-  branches   Branch[]
-  users      User[]
-  categories Category[]
-  products   Product[]
-  roles      Role[]
-  customers  Customer[]
-  carts      Cart[]
-  orders     Order[]
+model Organization {
+  id                 Int                 @id @default(autoincrement())
+  name               String
+  slug               String              @unique
+  type               OrganizationType    @default(BUSINESS)
+  status             RecordStatus        @default(ACTIVE)
+  createdAt          TimestamptzString   @default(now())
+
+  branches           Branch[]
+  users              User[]
+  categories         Category[]
+  products           Product[]
+  roles              Role[]
+  customers          Customer[]
+  carts              Cart[]
+  orders             Order[]
+  cashierAssignments CashierAssignment[]
 }
 
 model Branch {
-  id             Int               @id @default(autoincrement())
-  organizationId Int
-  name           String
-  code           String
-  type           BranchType        @default(STORE)
-  status         RecordStatus      @default(ACTIVE)
-  createdAt      TimestamptzString @default(now())
+  id              Int               @id @default(autoincrement())
+  organizationId  Int
+  name            String
+  code            String
+  type            BranchType        @default(STORE)
+  status          RecordStatus      @default(ACTIVE)
+  createdAt       TimestamptzString @default(now())
 
   organization    Organization      @relation(fields: [organizationId], references: [id])
   inventoryStocks InventoryStock[]
@@ -195,24 +199,21 @@ model Branch {
 }
 
 model User {
-  id             Int               @id @default(autoincrement())
-  organizationId Int
-  phone          String            @unique
-  email          String?           @unique
-  name           String?
-  status         RecordStatus      @default(ACTIVE)
-  createdAt      TimestamptzString @default(now())
+  id                 Int                 @id @default(autoincrement())
+  organizationId     Int
+  phone              String              @unique
+  email              String?             @unique
+  name               String?
+  status             RecordStatus        @default(ACTIVE)
+  createdAt          TimestamptzString   @default(now())
 
-  organization   Organization      @relation(fields: [organizationId], references: [id])
-  userRoles      UserRole[]
+  organization       Organization        @relation(fields: [organizationId], references: [id])
+  userRoles          UserRole[]
+  customer           Customer?
+  cashierAssignments CashierAssignment[] @relation("CashierAssignments")
 
   @@index([organizationId])
 }
-
-
-
-
-
 
 model Role {
   id             Int               @id @default(autoincrement())
@@ -314,8 +315,8 @@ model ProductVariant {
   product         Product           @relation(fields: [productId], references: [id])
   inventoryStocks InventoryStock[]
   stockMovements  StockMovement[]
-  cartItems CartItem[]
-  orderItems OrderItem[]
+  cartItems       CartItem[]
+  orderItems      OrderItem[]
 
   @@unique([sku])
   @@index([productId])
@@ -364,40 +365,44 @@ model StockMovement {
 }
 
 model Customer {
-  id             Int               @id @default(autoincrement())
-  organizationId Int
-  phone          String
-  email          String?
-  name           String?
-  status         CustomerStatus    @default(ACTIVE)
-  createdAt      TimestamptzString @default(now())
+  id                 Int                 @id @default(autoincrement())
+  organizationId     Int
+  userId             Int?                @unique
+  phone              String
+  email              String?
+  name               String?
+  status             CustomerStatus      @default(ACTIVE)
+  createdAt          TimestamptzString   @default(now())
 
-  organization   Organization      @relation(fields: [organizationId], references: [id])
-  addresses      CustomerAddress[]
-  carts          Cart[]
-  orders         Order[]
+  organization       Organization        @relation(fields: [organizationId], references: [id])
+  user               User?               @relation(fields: [userId], references: [id])
+  addresses          CustomerAddress[]
+  carts              Cart[]
+  orders             Order[]
+  cashierAssignments CashierAssignment[]
 
   @@unique([organizationId, phone])
   @@index([organizationId])
   @@index([organizationId, email])
+  @@index([userId])
 }
 
 model CustomerAddress {
-  id           Int               @id @default(autoincrement())
-  customerId   Int
-  label        String
+  id            Int               @id @default(autoincrement())
+  customerId    Int
+  label         String
   recipientName String
-  phone        String
-  addressLine1 String
-  addressLine2 String?
-  city         String
-  district     String
-  postalCode   String?
-  country      String            @default("BD")
-  isDefault    Boolean           @default(false)
-  createdAt    TimestamptzString @default(now())
+  phone         String
+  addressLine1  String
+  addressLine2  String?
+  city          String
+  district      String
+  postalCode    String?
+  country       String            @default("BD")
+  isDefault     Boolean           @default(false)
+  createdAt     TimestamptzString @default(now())
 
-  customer     Customer          @relation(fields: [customerId], references: [id])
+  customer      Customer          @relation(fields: [customerId], references: [id])
 
   @@index([customerId])
   @@index([customerId, isDefault])
@@ -413,7 +418,7 @@ model Cart {
   createdAt      TimestamptzString @default(now())
 
   organization   Organization      @relation(fields: [organizationId], references: [id])
-  customer       Customer?        @relation(fields: [customerId], references: [id])
+  customer       Customer?         @relation(fields: [customerId], references: [id])
   items          CartItem[]
 
   @@index([organizationId])
@@ -462,4 +467,22 @@ model Invoice {
   order           Order             @relation(fields: [orderId], references: [id])
 
   @@index([invoiceNumber])
+}
+
+model CashierAssignment {
+  id             Int                @id @default(autoincrement())
+  organizationId Int
+  cashierId      Int
+  customerId     Int
+  isActive       Boolean            @default(true)
+  startedAt      TimestamptzString  @default(now())
+  endedAt        TimestamptzString?
+
+  organization   Organization       @relation(fields: [organizationId], references: [id])
+  cashier        User               @relation("CashierAssignments", fields: [cashierId], references: [id])
+  customer       Customer           @relation(fields: [customerId], references: [id])
+
+  @@index([organizationId])
+  @@index([cashierId, isActive])
+  @@index([customerId, isActive])
 }
