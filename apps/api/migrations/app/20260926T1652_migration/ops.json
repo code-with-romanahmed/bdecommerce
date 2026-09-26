@@ -1,0 +1,170 @@
+[
+  {
+    "id": "column.public.order.riskLevel",
+    "label": "Add column \"riskLevel\" to \"order\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "riskLevel",
+        "table": "order"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"riskLevel\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "order",
+          "riskLevel"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"riskLevel\"",
+        "sql": "ALTER TABLE \"public\".\"order\" ADD COLUMN \"riskLevel\" text DEFAULT 'NONE' NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"riskLevel\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "order",
+          "riskLevel"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.order.riskReason",
+    "label": "Add column \"riskReason\" to \"order\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "riskReason",
+        "table": "order"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"riskReason\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "order",
+          "riskReason"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"riskReason\"",
+        "sql": "ALTER TABLE \"public\".\"order\" ADD COLUMN \"riskReason\" text[] DEFAULT '{}' NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"riskReason\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "order",
+          "riskReason"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "checkConstraint.order.order_riskLevel_check_f281c532",
+    "label": "Add check constraint \"order_riskLevel_check_f281c532\" on \"order\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "checkConstraint",
+        "name": "order_riskLevel_check_f281c532",
+        "table": "order"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"order_riskLevel_check_f281c532\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "order_riskLevel_check_f281c532",
+          "public",
+          "\"public\".\"order\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add check constraint \"order_riskLevel_check_f281c532\"",
+        "sql": "ALTER TABLE \"public\".\"order\" ADD CONSTRAINT \"order_riskLevel_check_f281c532\" CHECK (\"riskLevel\" IN ('NONE', 'MEDIUM', 'HIGH'))"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"order_riskLevel_check_f281c532\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "order_riskLevel_check_f281c532",
+          "public",
+          "\"public\".\"order\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "checkConstraint.order.order_riskReason_elem_not_null_c275fa3b",
+    "label": "Add check constraint \"order_riskReason_elem_not_null_c275fa3b\" on \"order\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "checkConstraint",
+        "name": "order_riskReason_elem_not_null_c275fa3b",
+        "table": "order"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"order_riskReason_elem_not_null_c275fa3b\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "order_riskReason_elem_not_null_c275fa3b",
+          "public",
+          "\"public\".\"order\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add check constraint \"order_riskReason_elem_not_null_c275fa3b\"",
+        "sql": "ALTER TABLE \"public\".\"order\" ADD CONSTRAINT \"order_riskReason_elem_not_null_c275fa3b\" CHECK (array_position(\"riskReason\", NULL) IS NULL)"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"order_riskReason_elem_not_null_c275fa3b\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "order_riskReason_elem_not_null_c275fa3b",
+          "public",
+          "\"public\".\"order\""
+        ]
+      }
+    ]
+  }
+]

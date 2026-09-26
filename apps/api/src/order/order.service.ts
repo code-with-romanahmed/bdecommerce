@@ -6,8 +6,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { Numeric } from '@prisma/orm-postgres/target/codec-types';
-
 import { db } from '../prisma/db.js';
+import { RiskService } from '../risk/risk.service.js';
 import {
   CreateOrderDto,
   CreatePaymentDto,
@@ -50,6 +50,8 @@ function money(value: number): Numeric<12, 2> {
 
 @Injectable()
 export class OrderService {
+  constructor(private readonly riskService: RiskService) {}
+
   private async generateOrderNumber(): Promise<string> {
     const now = new Date();
     const datePart =
@@ -204,7 +206,18 @@ export class OrderService {
       shippingTotal +
       taxTotal;
 
+   
+
+    const riskAssessment =
+      await this.riskService.assessOrderRisk(
+        organizationId,
+        customer.id,
+        grandTotal,
+      );
+
     const runTransaction = async (
+
+    
       orderNumber: string,
     ) =>
       db.transaction(async (tx) => {
@@ -300,7 +313,12 @@ export class OrderService {
             taxTotal: money(taxTotal),
             grandTotal:
               money(grandTotal),
+              riskLevel:
+              riskAssessment.level,
+            riskReason:
+              riskAssessment.reasons,
 
+            
             customerName:
               customer.name ??
               address.recipientName,
@@ -1012,14 +1030,26 @@ export class OrderService {
     };
   }
 
-  async listOrders(
-    organizationId: number,
-  ) {
-    return db.orm.public.Order
+ async listOrders(
+  organizationId: number,
+  customerIds?: number[] | null,
+) {
+  const orders =
+    await db.orm.public.Order
       .where({
         organizationId,
       })
       .all();
+
+  if (!customerIds) {
+    return orders;
   }
+
+  return orders.filter(
+    (order) =>
+      order.customerId != null &&
+      customerIds.includes(order.customerId),
+  );
+}
 }
 

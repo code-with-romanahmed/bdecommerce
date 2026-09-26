@@ -23,3 +23,32 @@ notifications/sms.service.ts, notifications.module.ts
 prisma/db.ts (ORM wrapper-এর ভেতরটা)
 organization মডিউলের ফাইল
 নতুন cashier-assignment.* ফাইলগুলো (এই সেশনে কনটেন্ট দেখা হয়নি, শুধু সামারি থেকে জানা)
+মূল ফিচার backlog (এখনো শুরু হয়নি)
+Customer risk/fraud flagging
+Barcode foundation
+Invoice generation
+বাকি organization/user-দের RBAC seed করা
+Discount/shipping/tax logic
+এখনো upload/review না-হওয়া ফাইল
+notifications/sms.service.ts, notifications.module.ts
+prisma/db.ts (ORM wrapper-এর ভেতরটা)
+organization মডিউলের ফাইল
+নতুন cashier-assignment.* ফাইলগুলো (এই সেশনে কনটেন্ট দেখা হয়নি, শুধু সামারি থেকে জানা)
+
+# pkb SIRAJGONJ AR gpt
+
+আমরা যে জায়গায় আছি, সেখান থেকেই single-business application হিসেবে এগোব।
+
+আর future-এ যদি কখনো তোমার business বড় হয়ে যায় এবং আলাদা company/tenant চালানোর দরকার হয়, তখন architecture-টা সেই capability already রাখবে।
+
+তাই এখন আমার recommendation:
+
+Multi-tenant feature বানাব না, কিন্তু existing organizationId architecture-টা রেখে দেব।
+
+এতে এখনকার development সহজ থাকবে, আবার অকারণে schema rewrite-ও করতে হবে না।
+
+# redis for 8 ai computer a install kora ase
+
+# alljunks a last  ((bulk order api test ta korini))
+
+# Steadfast@123 password

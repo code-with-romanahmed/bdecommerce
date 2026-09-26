@@ -1,5 +1,9 @@
 // use prisma-8
-
+enum RiskLevel {
+  NONE
+  MEDIUM
+  HIGH
+}
 enum OrganizationType {
   BUSINESS
   BRAND
@@ -110,6 +114,8 @@ model Order {
   shippingDistrict      String
   shippingPostalCode    String?
   shippingCountry       String            @default("BD")
+  riskLevel             RiskLevel         @default(NONE)
+  riskReason            String[]          @default([])
 
   createdAt             TimestamptzString @default(now())
 
