@@ -9,6 +9,7 @@ import { CourierCheckModule } from './courier-check/courier-check.module.js';
 import { CustomerModule } from './customer/customer.module.js';
 import { InventoryModule } from './inventory/inventory.module.js';
 import { InvoiceModule } from './invoice/invoice.module.js';
+import { LabelModule } from './label/label.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { OrderModule } from './order/order.module.js';
 import { OrganizationModule } from './organization/organization.module.js';
@@ -35,6 +36,7 @@ import { RiskModule } from './risk/risk.module.js';
     CartModule,
      CourierCheckModule, 
     OrderModule,
+      LabelModule,
     CashierAssignmentModule,
   ],
   controllers: [AppController],

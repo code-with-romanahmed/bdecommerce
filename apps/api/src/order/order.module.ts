@@ -10,5 +10,6 @@ import { OrderService } from './order.service.js';
   imports: [AuthModule],
   controllers: [OrderController],
   providers: [OrderService, OrderAccessService, OrderAccessGuard],
+  exports: [OrderService, OrderAccessService, OrderAccessGuard],
 })
 export class OrderModule {}
