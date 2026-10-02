@@ -52,3 +52,7 @@ Multi-tenant feature বানাব না, কিন্তু existing organiz
 # alljunks a last  ((bulk order api test ta korini))
 
 # Steadfast@123 password
+
+# all junks claud a PENDING --confirm--> CONFIRMED --process--> PROCESSING --ship--> SHIPPED --deliver--> DELIVERED --return--> RETURNED
+
+# rmn.tda claud a sms

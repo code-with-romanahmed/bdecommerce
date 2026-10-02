@@ -773,9 +773,56 @@ export class OrderService {
       );
     }
 
+    if (order.status !== 'PROCESSING') {
+      throw new BadRequestException(
+        `Only PROCESSING orders can be shipped (current: ${order.status})`,
+      );
+    }
+
+    const updated =
+      await db.orm.public.Order
+        .where({
+          id: order.id,
+          organizationId,
+          status: 'PROCESSING',
+        })
+        .update({
+          status: 'SHIPPED',
+        });
+
+      if (!updated) {
+      throw new ConflictException(
+        'Order status changed, please retry',
+      );
+    }
+
+    return this.getOrder(
+      organizationId,
+      order.id,
+    );
+  }
+
+  async processOrder(
+    organizationId: number,
+    orderId: number,
+  ) {
+    const order =
+      await db.orm.public.Order
+        .where({
+          id: orderId,
+          organizationId,
+        })
+        .first();
+
+    if (!order) {
+      throw new NotFoundException(
+        'Order not found',
+      );
+    }
+
     if (order.status !== 'CONFIRMED') {
       throw new BadRequestException(
-        `Only CONFIRMED orders can be shipped (current: ${order.status})`,
+        `Only CONFIRMED orders can move to processing (current: ${order.status})`,
       );
     }
 
@@ -787,7 +834,7 @@ export class OrderService {
           status: 'CONFIRMED',
         })
         .update({
-          status: 'SHIPPED',
+          status: 'PROCESSING',
         });
 
     if (!updated) {
@@ -801,6 +848,7 @@ export class OrderService {
       order.id,
     );
   }
+
 
   async deliverOrder(
     organizationId: number,
@@ -983,6 +1031,143 @@ export class OrderService {
             })
             .update({
               paymentStatus: 'PAID',
+            });
+
+        if (!paymentUpdated) {
+          throw new ConflictException(
+            'Failed to update payment status',
+          );
+        }
+      }
+       });
+
+    return this.getOrder(
+      organizationId,
+      order.id,
+    );
+  }
+
+  async returnOrder(
+    organizationId: number,
+    orderId: number,
+  ) {
+    const order =
+      await db.orm.public.Order
+        .where({
+          id: orderId,
+          organizationId,
+        })
+        .first();
+
+    if (!order) {
+      throw new NotFoundException(
+        'Order not found',
+      );
+    }
+
+    if (order.status !== 'DELIVERED') {
+      throw new BadRequestException(
+        `Only DELIVERED orders can be returned (current: ${order.status})`,
+      );
+    }
+
+    await db.transaction(async (tx) => {
+      const updated =
+        await tx.orm.public.Order
+          .where({
+            id: order.id,
+            organizationId,
+            status: 'DELIVERED',
+          })
+          .update({
+            status: 'RETURNED',
+          });
+
+      if (!updated) {
+        throw new ConflictException(
+          'Order status changed, please retry',
+        );
+      }
+
+      const orderItems =
+        await tx.orm.public.OrderItem
+          .where({
+            orderId: order.id,
+          })
+          .all();
+
+      for (const item of orderItems) {
+        const movements =
+          await tx.orm.public.StockMovement
+            .where({
+              organizationId,
+              referenceType: 'ORDER_DELIVERY',
+              referenceId: order.id,
+              productVariantId:
+                item.productVariantId,
+            })
+            .all();
+
+        for (const movement of movements) {
+          const stock =
+            await tx.orm.public.InventoryStock
+              .where({
+                id: movement.inventoryStockId,
+              })
+              .first();
+
+          if (!stock) {
+            continue;
+          }
+
+          const returnQty =
+            Math.abs(movement.quantity);
+
+          const stockUpdated =
+            await tx.orm.public.InventoryStock
+              .where({
+                id: stock.id,
+                quantity: stock.quantity,
+              })
+              .update({
+                quantity:
+                  stock.quantity + returnQty,
+              });
+
+          if (!stockUpdated) {
+            throw new ConflictException(
+              'Inventory changed while processing return, please retry',
+            );
+          }
+
+          await tx.orm.public.StockMovement.create({
+            organizationId,
+            branchId: movement.branchId,
+            productVariantId:
+              movement.productVariantId,
+            inventoryStockId: stock.id,
+
+            type: 'RETURN_IN',
+            quantity: returnQty,
+
+            referenceType: 'ORDER_RETURN',
+            referenceId: order.id,
+
+            note:
+              `Returned from ${order.orderNumber}`,
+          });
+        }
+      }
+
+      if (order.paymentStatus === 'PAID') {
+        const paymentUpdated =
+          await tx.orm.public.Order
+            .where({
+              id: order.id,
+              organizationId,
+            })
+            .update({
+              paymentStatus: 'REFUNDED',
             });
 
         if (!paymentUpdated) {

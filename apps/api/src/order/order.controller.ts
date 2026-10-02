@@ -57,6 +57,15 @@ export class OrderController {
   ) {
     return this.orderService.confirmOrder(organizationId, id);
   }
+   @Patch(':id/process')
+  @RequirePermission('order.update')
+  @UseGuards(OrderAccessGuard)
+  processOrder(
+    @OrganizationId() organizationId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.orderService.processOrder(organizationId, id);
+  }
 
   @Patch(':id/cancel')
   @RequirePermission('order.update')
@@ -86,6 +95,16 @@ export class OrderController {
     @Param('id', ParseIntPipe) id: number,
   ) {
     return this.orderService.deliverOrder(organizationId, id);
+  }
+
+   @Patch(':id/return')
+  @RequirePermission('order.update')
+  @UseGuards(OrderAccessGuard)
+  returnOrder(
+    @OrganizationId() organizationId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.orderService.returnOrder(organizationId, id);
   }
 
   @Get(':id')
