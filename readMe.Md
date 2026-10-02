@@ -56,3 +56,4 @@ Multi-tenant feature বানাব না, কিন্তু existing organiz
 # all junks claud a PENDING --confirm--> CONFIRMED --process--> PROCESSING --ship--> SHIPPED --deliver--> DELIVERED --return--> RETURNED
 
 # rmn.tda claud a sms
+# all junk a last claud and ayaan bogura claud
