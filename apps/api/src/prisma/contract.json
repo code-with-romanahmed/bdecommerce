@@ -2793,6 +2793,13 @@
                   "kind": "scalar"
                 }
               },
+              "organizationId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
               "price": {
                 "nullable": false,
                 "type": {
@@ -2916,6 +2923,9 @@
                 },
                 "name": {
                   "column": "name"
+                },
+                "organizationId": {
+                  "column": "organizationId"
                 },
                 "price": {
                   "column": "price"
@@ -5644,6 +5654,11 @@
                   "nativeType": "text",
                   "nullable": true
                 },
+                "organizationId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": false
+                },
                 "price": {
                   "codecId": "pg/numeric@1",
                   "nativeType": "numeric",
@@ -5696,6 +5711,14 @@
               "indexes": [
                 {
                   "columns": [
+                    "organizationId"
+                  ],
+                  "name": "productVariant_organizationId_idx_2e17ef41",
+                  "prefix": "productVariant_organizationId_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
                     "productId"
                   ],
                   "name": "productVariant_productId_idx_5858600a",
@@ -5711,6 +5734,7 @@
               "uniques": [
                 {
                   "columns": [
+                    "organizationId",
                     "sku"
                   ]
                 }
@@ -6408,7 +6432,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "d91d2567317597e7d3d80ec08779042db7427611633f07d1cfb0ed8742cd3b6c"
+    "storageHash": "10631d3d0c02408fe74464095005692b80d9d1cc0ec7e77e79942490a2f74ab3"
   },
   "capabilities": {
     "postgres": {

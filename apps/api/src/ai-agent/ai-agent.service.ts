@@ -29,17 +29,6 @@ Shipping policy: ঢাকার ভেতরে ৬০৳, ঢাকার ব�
 
 const STAFF_SYSTEM_PROMPT = `তুমি একটা e-commerce প্ল্যাটফর্মের স্টাফ সহকারী। স্টাফকে order খুঁজতে, status পরিবর্তন করতে, risk-flag বুঝতে, inventory check করতে, এবং sales summary বানাতে সাহায্য করো। সংক্ষিপ্ত, কার্যকর উত্তর দাও।`;
 
-// ---------------------------------------------------------------------------
-// Anthropic tool-schema → Gemini FunctionDeclaration adapter.
-//
-// ai-agent-tools.ts's buildCustomerTools()/buildStaffTools() still return
-// Anthropic-shaped definitions: { name, description, input_schema: { type:
-// 'object', properties, required } }. This converts that shape to Gemini's
-// FunctionDeclaration (parameters.type as a SchemaType enum). If you later
-// rewrite ai-agent-tools.ts to emit Gemini shapes natively, this adapter
-// becomes a no-op and can be removed.
-// ---------------------------------------------------------------------------
-
 const JSON_TYPE_TO_SCHEMA_TYPE: Record<string, SchemaType> = {
   object: SchemaType.OBJECT,
   string: SchemaType.STRING,
@@ -83,23 +72,12 @@ function toGeminiTools(anthropicTools: any[]): FunctionDeclaration[] {
   }));
 }
 
-// ---------------------------------------------------------------------------
-// Chat-history mapping: this service's own ChatMessage[] (role: 'user' |
-// 'assistant') → Gemini's Content[] (role: 'user' | 'model', parts: Part[]).
-// ---------------------------------------------------------------------------
-
 function toGeminiHistory(history: ChatMessage[]): Content[] {
   return history.map((h) => ({
     role: h.role === 'assistant' ? 'model' : 'user',
     parts: [{ text: h.content }],
   }));
 }
-
-// ---------------------------------------------------------------------------
-// Retry transient Gemini errors (503 overloaded, 429 rate-limited) with
-// exponential backoff. Anything else (400 bad request, 404 model not found,
-// etc.) is a real bug and should surface immediately, not be retried.
-// ---------------------------------------------------------------------------
 
 function isRetryableStatus(status: unknown): boolean {
   return status === 503 || status === 429;
@@ -123,7 +101,7 @@ async function withRetry<T>(
         throw error;
       }
 
-      const delayMs = 500 * 2 ** (attempt - 1); // 500ms, 1s, 2s...
+      const delayMs = 500 * 2 ** (attempt - 1);
       await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
   }
@@ -186,12 +164,6 @@ export class AiAgentService {
       },
     });
 
-    // NOTE: deliberately not using model.startChat()/ChatSession.sendMessage()
-    // here. That convenience wrapper auto-tags function-response turns with
-    // role: 'function', which the current API rejects ("Role 'function' is
-    // not supported" — only SYSTEM/USER/ASSISTANT/MODEL/etc. are accepted
-    // now). Managing `contents` manually lets every turn's role be set
-    // explicitly, so function responses go out as role: 'user' instead.
     const contents: Content[] = [
       ...toGeminiHistory(history),
       { role: 'user', parts: [{ text: message }] },
@@ -225,7 +197,7 @@ export class AiAgentService {
       const functionResponses: Part[] = [];
 
       for (const call of functionCalls) {
-        const result = isStaff
+        const rawResult = isStaff
           ? await executeStaffTool(
               call.name,
               call.args,
@@ -239,17 +211,23 @@ export class AiAgentService {
               customerId!,
             );
 
+        // String response-কে Parsed JSON-এ রূপান্তর
+        let parsedResult: Record<string, any>;
+        try {
+          parsedResult = JSON.parse(rawResult);
+        } catch {
+          parsedResult = { result: rawResult };
+        }
+
         functionResponses.push({
           functionResponse: {
             name: call.name,
-            // Gemini expects an object here; executeStaffTool/
-            // executeCustomerTool returns a string (same as the Anthropic
-            // version's tool_result content), so it's wrapped.
-            response: { result },
+            response: parsedResult,
           },
         });
       }
 
+      // role: 'user' ব্যবহার করতে হবে, কারণ TypeScript definitions-এ role টাইপ হলো 'user' | 'model'
       contents.push({ role: 'user', parts: functionResponses });
     }
 

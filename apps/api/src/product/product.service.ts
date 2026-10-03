@@ -119,17 +119,19 @@ export class ProductService {
     const existing =
       await db.orm.public.ProductVariant
         .where({
+          organizationId,
           sku: dto.sku,
         })
         .first();
 
     if (existing) {
       throw new ConflictException(
-        'SKU already exists',
+        'SKU already exists in this organization',
       );
     }
 
     return db.orm.public.ProductVariant.create({
+      organizationId,
       productId,
       sku: dto.sku,
       name: dto.name,
