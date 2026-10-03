@@ -1,11 +1,11 @@
 import {
-    ConflictException,
-    Injectable,
-    NotFoundException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 
+import type { Numeric } from "@prisma/orm-postgres/target/codec-types";
 import { db } from '../prisma/db.js';
-
 import type { CreateCategoryDto } from './category.dto.js';
 import type { CreateProductVariantDto } from './product-variant.dto.js';
 import type { CreateProductDto } from './product.dto.js';
@@ -119,21 +119,23 @@ export class ProductService {
     const existing =
       await db.orm.public.ProductVariant
         .where({
+          organizationId,
           sku: dto.sku,
         })
         .first();
 
     if (existing) {
       throw new ConflictException(
-        'SKU already exists',
+        'SKU already exists in this organization',
       );
     }
 
     return db.orm.public.ProductVariant.create({
+      organizationId,
       productId,
       sku: dto.sku,
       name: dto.name,
-      price: dto.price,
+      price: dto.price as Numeric<10, 2>,
     });
   }
 

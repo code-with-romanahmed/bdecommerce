@@ -51,6 +51,36 @@ const permissions = [
     name: 'Update inventory',
     description: 'Update inventory',
   },
+    {
+    code: 'customer.read',
+    name: 'Read customers',
+    description: 'View customers and addresses',
+  },
+  {
+    code: 'customer.update',
+    name: 'Update customers',
+    description: 'Create/update customers and addresses',
+  },
+  {
+    code: 'cart.read',
+    name: 'Read carts',
+    description: 'View carts and cart items',
+  },
+  {
+    code: 'cart.update',
+    name: 'Update carts',
+    description: 'Create/update carts and cart items',
+  },
+  {
+  code: 'invoice.read',
+  name: 'Read invoices',
+  description: 'View invoices and download PDF',
+},
+{
+  code: 'invoice.create',
+  name: 'Create invoices',
+  description: 'Manually (re)generate an invoice for an order',
+},
 ] as const;
 
 const rolePermissions: Record<string, string[]> = {
@@ -71,6 +101,12 @@ const rolePermissions: Record<string, string[]> = {
     'order.update',
     'inventory.read',
     'inventory.update',
+    'customer.read',
+    'customer.update',
+    'cart.read',
+    'cart.update',
+    'invoice.read',
+    'invoice.create',
   ],
 
   CASHIER: [
@@ -78,6 +114,12 @@ const rolePermissions: Record<string, string[]> = {
     'order.read',
     'order.update',
     'inventory.read',
+    'customer.read',
+    'customer.update',
+    'cart.read',
+    'cart.update',
+    'invoice.read',
+    'invoice.create',
   ],
 
   WAREHOUSE: [
@@ -91,9 +133,12 @@ const rolePermissions: Record<string, string[]> = {
     'order.update',
   ],
 
-  CUSTOMER: [
+    CUSTOMER: [
     'product.read',
     'order.read',
+    'cart.read',
+    'cart.update',
+     'invoice.read',
   ],
 };
 

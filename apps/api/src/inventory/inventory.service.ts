@@ -460,4 +460,131 @@ async transferStock(
       })
       .all();
   }
+
+  // ১. অর্ডার তৈরির সময়ে স্টক রিজার্ভ করার লজিক
+  async reserveStockForOrder(
+    organizationId: number,
+    branchId: number,
+    items: { productVariantId: number; quantity: number }[],
+    tx?: any,
+  ) {
+    const client = tx || db;
+
+    for (const item of items) {
+      const stock = await client.orm.public.InventoryStock
+        .where({
+          organizationId,
+          branchId,
+          productVariantId: item.productVariantId,
+        })
+        .first();
+
+      if (!stock) {
+        throw new BadRequestException(
+          `Stock record not found for variant ID: ${item.productVariantId}`,
+        );
+      }
+
+      const availableQuantity = stock.quantity - stock.reservedQuantity;
+
+      if (availableQuantity < item.quantity) {
+        throw new BadRequestException(
+          `Insufficient stock for variant ID: ${item.productVariantId}. Available: ${availableQuantity}`,
+        );
+      }
+
+      // reservedQuantity বাড়িয়ে দেওয়া হচ্ছে
+      await client.orm.public.InventoryStock
+        .where({ id: stock.id })
+        .update({
+          reservedQuantity: stock.reservedQuantity + item.quantity,
+        });
+    }
+  }
+
+  // ২. অর্ডার ক্যানসেল হলে স্টক রিলিজ/রিস্টোর করার লজিক
+  async releaseStockForOrder(
+    organizationId: number,
+    branchId: number,
+    items: { productVariantId: number; quantity: number }[],
+    tx?: any,
+  ) {
+    const client = tx || db;
+
+    for (const item of items) {
+      const stock = await client.orm.public.InventoryStock
+        .where({
+          organizationId,
+          branchId,
+          productVariantId: item.productVariantId,
+        })
+        .first();
+
+      if (stock) {
+        // reservedQuantity কমিয়ে স্বাভাবিক অবস্থায় নিয়ে যাওয়া
+        const newReserved = Math.max(0, stock.reservedQuantity - item.quantity);
+
+        await client.orm.public.InventoryStock
+          .where({ id: stock.id })
+          .update({
+            reservedQuantity: newReserved,
+          });
+      }
+    }
+  }
+
+  // ৩. ডেলিভারি বা কনফার্মেশনের সময় মূল Stock থেকে স্থায়ীভাবে Deduct করার লজিক
+  async deductStockForOrder(
+    organizationId: number,
+    branchId: number,
+    orderId: number,
+    items: { productVariantId: number; quantity: number }[],
+    tx?: any,
+  ) {
+    const client = tx || db;
+
+    for (const item of items) {
+      const stock = await client.orm.public.InventoryStock
+        .where({
+          organizationId,
+          branchId,
+          productVariantId: item.productVariantId,
+        })
+        .first();
+
+      if (!stock) {
+        throw new BadRequestException(
+          `Stock not found for variant ID: ${item.productVariantId}`,
+        );
+      }
+
+      const newReserved = Math.max(0, stock.reservedQuantity - item.quantity);
+      const newQuantity = stock.quantity - item.quantity;
+
+      if (newQuantity < 0) {
+        throw new BadRequestException('Stock deduction resulted in negative value');
+      }
+
+      // Stock কমানো
+      const updatedStock = await client.orm.public.InventoryStock
+        .where({ id: stock.id })
+        .update({
+          quantity: newQuantity,
+          reservedQuantity: newReserved,
+        });
+
+      // OUT Movement লগ করা
+      await client.orm.public.StockMovement.create({
+        organizationId,
+        branchId,
+        productVariantId: item.productVariantId,
+        inventoryStockId: updatedStock.id,
+        type: 'OUT',
+        quantity: item.quantity,
+        referenceType: 'ORDER',
+        referenceId: orderId,
+        note: `Stock deducted for Order ID: ${orderId}`,
+      });
+    }
+  }
 }

@@ -1,0 +1,215 @@
+[
+  {
+    "id": "dropConstraint.productVariant.productVariant_sku_key",
+    "label": "Drop constraint \"productVariant_sku_key\" on \"productVariant\"",
+    "operationClass": "destructive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "productVariant_sku_key",
+        "table": "productVariant"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"productVariant_sku_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "productVariant_sku_key",
+          "public",
+          "\"public\".\"productVariant\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "drop constraint \"productVariant_sku_key\"",
+        "sql": "ALTER TABLE \"public\".\"productVariant\" DROP CONSTRAINT \"productVariant_sku_key\""
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"productVariant_sku_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "productVariant_sku_key",
+          "public",
+          "\"public\".\"productVariant\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.productVariant.organizationId",
+    "label": "Add column \"organizationId\" to \"productVariant\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "organizationId",
+        "table": "productVariant"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"organizationId\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "productVariant",
+          "organizationId"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"organizationId\"",
+        "sql": "ALTER TABLE \"public\".\"productVariant\" ADD COLUMN \"organizationId\" int4 DEFAULT 5"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"organizationId\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "productVariant",
+          "organizationId"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "alterNullability.setNotNull.productVariant.organizationId",
+    "label": "Set NOT NULL on \"productVariant\".\"organizationId\"",
+    "operationClass": "destructive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "organizationId",
+        "table": "productVariant"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"organizationId\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "productVariant",
+          "organizationId"
+        ]
+      },
+      {
+        "description": "ensure no NULL values in \"organizationId\"",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"public\".\"productVariant\" WHERE \"organizationId\" IS NULL) AS \"result\"",
+        "params": []
+      }
+    ],
+    "execute": [
+      {
+        "description": "set NOT NULL on \"organizationId\"",
+        "sql": "ALTER TABLE \"public\".\"productVariant\" ALTER COLUMN \"organizationId\" SET NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"organizationId\" is NOT NULL",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3 AND \"is_nullable\" = $4)) AS \"result\"",
+        "params": [
+          "public",
+          "productVariant",
+          "organizationId",
+          "NO"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.productVariant.productVariant_organizationId_sku_key",
+    "label": "Add unique constraint on \"productVariant\" (organizationId, sku)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "productVariant_organizationId_sku_key",
+        "table": "productVariant"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"productVariant_organizationId_sku_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "productVariant_organizationId_sku_key",
+          "public",
+          "\"public\".\"productVariant\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"productVariant_organizationId_sku_key\"",
+        "sql": "ALTER TABLE \"public\".\"productVariant\" ADD CONSTRAINT \"productVariant_organizationId_sku_key\" UNIQUE (\"organizationId\", \"sku\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"productVariant_organizationId_sku_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "productVariant_organizationId_sku_key",
+          "public",
+          "\"public\".\"productVariant\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.productVariant.productVariant_organizationId_idx_2e17ef41",
+    "label": "Create index \"productVariant_organizationId_idx_2e17ef41\" on \"productVariant\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "productVariant_organizationId_idx_2e17ef41",
+        "table": "productVariant"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"productVariant_organizationId_idx_2e17ef41\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"productVariant_organizationId_idx_2e17ef41\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"productVariant_organizationId_idx_2e17ef41\"",
+        "sql": "CREATE INDEX \"productVariant_organizationId_idx_2e17ef41\" ON \"public\".\"productVariant\" (\"organizationId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"productVariant_organizationId_idx_2e17ef41\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"productVariant_organizationId_idx_2e17ef41\""
+        ]
+      }
+    ]
+  }
+]

@@ -80,7 +80,7 @@ async findUserByPhone(
       accessToken,
       refreshToken,
       tokenType: 'Bearer',
-      expiresIn: 900,
+      expiresIn: 14400,
       sessionId,
     };
   }
