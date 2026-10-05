@@ -21,15 +21,10 @@ export class InvoiceService {
     organizationId: number,
     orderId: number,
   ) {
-    const existing =
-      await db.orm.public.Invoice
-        .where({ orderId })
-        .first();
-
-    if (existing) {
-      return existing;
-    }
-
+    // org check সবার আগে — orderId আসলে এই organization-এর কিনা
+    // সেটা confirm না করে existing invoice ফেরত দেওয়া cross-org
+    // leak তৈরি করবে (অন্য org-এর orderId দিয়ে কল করলেও তার
+    // invoice চলে আসবে)।
     const order =
       await db.orm.public.Order
         .where({
@@ -40,6 +35,15 @@ export class InvoiceService {
 
     if (!order) {
       throw new NotFoundException('Order not found');
+    }
+
+    const existing =
+      await db.orm.public.Invoice
+        .where({ orderId: order.id })
+        .first();
+
+    if (existing) {
+      return existing;
     }
 
     const shippingAddress = [

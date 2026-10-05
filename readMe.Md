@@ -111,3 +111,9 @@ Pagination & Field Filtering: প্রোডাক্ট লিস্টে এ
 Redis Caching: বারবার ডাটাবেজে হিট না করে হোমপেজের ব্যানার, ক্যাটাগরি বা জনপ্রিয় প্রোডাক্ট ক্যাশ (Cache) থেকে দ্রুত রেসপন্স করা।
 
 Invoices / PDF Generation: অর্ডার সফল হলে এপিআই থেকেই ক্যাশ মেমো বা পিডিএফ ইনভয়েস জেনারেট করে কাস্টমার ও অ্যাডমিনকে পাঠানো।
+
+# ayaan a google auth
+
+# alljuncsk gemini te kisu analysis ase must watch
+
+# pkbromanahmed a pagination last code 05.10.2026

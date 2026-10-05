@@ -1,4 +1,3 @@
-
 import {
   BadRequestException,
   ConflictException,
@@ -487,111 +486,162 @@ export class OrderService {
     orderId: number,
     dto: CreatePaymentDto,
   ) {
-    const order =
-      await db.orm.public.Order
-        .where({
-          id: orderId,
-          organizationId,
-        })
-        .first();
-
-    if (!order) {
-      throw new NotFoundException(
-        'Order not found',
-      );
-    }
-
-    if (order.status === 'CANCELLED') {
-      throw new BadRequestException(
-        'Cannot create payment for a cancelled order',
-      );
-    }
-
     if (dto.amount <= 0) {
       throw new BadRequestException(
         'Payment amount must be greater than zero',
       );
     }
 
-    // Prevent duplicate transaction ID
-    if (dto.transactionId) {
-      const existingPayment =
-        await db.orm.public.Payment
-          .where({
-            transactionId:
-              dto.transactionId,
-          })
-          .first();
+    const runTransaction = async () =>
+      db.transaction(async (tx) => {
+        const order =
+          await tx.orm.public.Order
+            .where({
+              id: orderId,
+              organizationId,
+            })
+            .first();
 
-      if (existingPayment) {
-        throw new ConflictException(
-          'A payment with this transaction ID already exists',
-        );
+        if (!order) {
+          throw new NotFoundException(
+            'Order not found',
+          );
+        }
+
+        if (order.status === 'CANCELLED') {
+          throw new BadRequestException(
+            'Cannot create payment for a cancelled order',
+          );
+        }
+
+        // Prevent duplicate transaction ID (scoped to this organization only)
+        if (dto.transactionId) {
+          const candidatePayments =
+            await tx.orm.public.Payment
+              .where({
+                transactionId:
+                  dto.transactionId,
+              })
+              .all();
+
+          for (const candidate of candidatePayments) {
+            const candidateOrder =
+              await tx.orm.public.Order
+                .where({
+                  id: candidate.orderId,
+                })
+                .first();
+
+            if (
+              candidateOrder &&
+              candidateOrder.organizationId ===
+                organizationId
+            ) {
+              throw new ConflictException(
+                'A payment with this transaction ID already exists',
+              );
+            }
+          }
+        }
+
+        const existingPayments =
+          await tx.orm.public.Payment
+            .where({
+              orderId: order.id,
+            })
+            .all();
+
+        const paidAmount =
+          existingPayments
+            .filter(
+              (payment) =>
+                payment.status === 'PAID' ||
+                payment.status ===
+                  'AUTHORIZED',
+            )
+            .reduce(
+              (total, payment) =>
+                total +
+                Number(payment.amount),
+              0,
+            );
+
+
+        const orderTotal =
+          Number(order.grandTotal);
+
+        const remainingAmount =
+          orderTotal - paidAmount;
+
+        if (dto.amount > remainingAmount) {
+          throw new BadRequestException(
+            `Payment amount exceeds remaining balance of ${remainingAmount.toFixed(2)}`,
+          );
+        }
+
+        const payment =
+          await tx.orm.public.Payment.create({
+            orderId: order.id,
+            amount: money(dto.amount),
+            currency: order.currency,
+            status: 'PAID',
+            method: dto.method,
+            transactionId:
+              dto.transactionId ??
+              undefined,
+          });
+
+        const newPaidAmount =
+          paidAmount + dto.amount;
+
+        const updated =
+          await tx.orm.public.Order
+            .where({
+              id: order.id,
+              organizationId,
+              paymentStatus: order.paymentStatus,
+            })
+            .update({
+              paymentStatus:
+                newPaidAmount >= orderTotal
+                  ? 'PAID'
+                  : 'PENDING',
+            });
+
+        if (!updated) {
+          throw new ConflictException(
+            'RETRYABLE: Order payment status changed concurrently, please retry',
+          );
+        }
+
+        return payment;
+      });
+
+    for (let attempt = 1; attempt <= 5; attempt++) {
+      try {
+        return await runTransaction();
+      } catch (error) {
+        const isRetryableConflict =
+          error instanceof ConflictException &&
+          error.message.startsWith('RETRYABLE:');
+
+        if (isRetryableConflict) {
+          if (attempt < 5) {
+            continue;
+          }
+
+          throw new ConflictException(
+            'Order payment status changed concurrently, please retry',
+          );
+        }
+
+        throw error;
       }
     }
 
-    const existingPayments =
-      await db.orm.public.Payment
-        .where({
-          orderId: order.id,
-        })
-        .all();
-
-    const paidAmount =
-      existingPayments
-        .filter(
-          (payment) =>
-            payment.status === 'PAID' ||
-            payment.status ===
-              'AUTHORIZED',
-        )
-        .reduce(
-          (total, payment) =>
-            total +
-            Number(payment.amount),
-          0,
-        );
-
-    const orderTotal =
-      Number(order.grandTotal);
-
-    const remainingAmount =
-      orderTotal - paidAmount;
-
-    if (dto.amount > remainingAmount) {
-      throw new BadRequestException(
-        `Payment amount exceeds remaining balance of ${remainingAmount.toFixed(2)}`,
-      );
-    }
-
-    const payment =
-      await db.orm.public.Payment.create({
-        orderId: order.id,
-        amount: money(dto.amount),
-        currency: order.currency,
-        status: 'PAID',
-        method: dto.method,
-        transactionId:
-          dto.transactionId ??
-          undefined,
-      });
-
-    const newPaidAmount =
-      paidAmount + dto.amount;
-
-    await db.orm.public.Order
-      .where({
-        id: order.id,
-        organizationId,
-      })
-      .update({
-        paymentStatus:
-          newPaidAmount >= orderTotal
-            ? 'PAID'
-            : 'PENDING',
-      });
-
-    return payment;
+    throw new ConflictException(
+      'Could not process payment after retries',
+    );
   }
 
   async confirmOrder(
@@ -661,7 +711,8 @@ export class OrderService {
 
     if (
       order.status !== 'PENDING' &&
-      order.status !== 'CONFIRMED'
+      order.status !== 'CONFIRMED' &&
+      order.status !== 'PROCESSING'
     ) {
       throw new BadRequestException(
         `Order cannot be cancelled (current: ${order.status})`,
@@ -1015,19 +1066,49 @@ export class OrderService {
         order.paymentMethod === 'COD' &&
         order.paymentStatus !== 'PAID'
       ) {
-        await tx.orm.public.Payment.create({
-          orderId: order.id,
-          amount: order.grandTotal,
-          currency: order.currency,
-          status: 'PAID',
-          method: 'COD',
-        });
+        const existingPayments =
+          await tx.orm.public.Payment
+            .where({
+              orderId: order.id,
+            })
+            .all();
+
+        const alreadyPaid =
+          existingPayments
+            .filter(
+              (payment) =>
+                payment.status === 'PAID' ||
+                payment.status ===
+                  'AUTHORIZED',
+            )
+            .reduce(
+              (total, payment) =>
+                total +
+                Number(payment.amount),
+              0,
+            );
+
+        const codAmount =
+          Number(order.grandTotal) -
+          alreadyPaid;
+
+        if (codAmount > 0) {
+          await tx.orm.public.Payment.create({
+            orderId: order.id,
+            amount: money(codAmount),
+            currency: order.currency,
+            status: 'PAID',
+            method: 'COD',
+          });
+        }
 
         const paymentUpdated =
           await tx.orm.public.Order
             .where({
               id: order.id,
               organizationId,
+              paymentStatus:
+                order.paymentStatus,
             })
             .update({
               paymentStatus: 'PAID',
@@ -1160,11 +1241,45 @@ export class OrderService {
       }
 
       if (order.paymentStatus === 'PAID') {
+        const existingPayments =
+          await tx.orm.public.Payment
+            .where({
+              orderId: order.id,
+            })
+            .all();
+
+        const paidAmount =
+          existingPayments
+            .filter(
+              (payment) =>
+                payment.status === 'PAID' ||
+                payment.status ===
+                  'AUTHORIZED',
+            )
+            .reduce(
+              (total, payment) =>
+                total +
+                Number(payment.amount),
+              0,
+            );
+
+        if (paidAmount > 0) {
+          await tx.orm.public.Payment.create({
+            orderId: order.id,
+            amount: money(-paidAmount),
+            currency: order.currency,
+            status: 'REFUNDED',
+            method: order.paymentMethod,
+          });
+        }
+
         const paymentUpdated =
           await tx.orm.public.Order
             .where({
               id: order.id,
               organizationId,
+              paymentStatus:
+                order.paymentStatus,
             })
             .update({
               paymentStatus: 'REFUNDED',
@@ -1237,4 +1352,3 @@ export class OrderService {
   );
 }
 }
-

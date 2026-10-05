@@ -40,6 +40,10 @@
       "model": "Invoice",
       "namespace": "public"
     },
+    "oAuthIdentity": {
+      "model": "OAuthIdentity",
+      "namespace": "public"
+    },
     "order": {
       "model": "Order",
       "namespace": "public"
@@ -1640,6 +1644,94 @@
               },
               "namespaceId": "public",
               "table": "invoice"
+            }
+          },
+          "OAuthIdentity": {
+            "fields": {
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "kind": "scalar"
+                }
+              },
+              "email": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "provider": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "providerUserId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "userId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "user": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "userId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "User",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "createdAt": {
+                  "column": "createdAt"
+                },
+                "email": {
+                  "column": "email"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "provider": {
+                  "column": "provider"
+                },
+                "providerUserId": {
+                  "column": "providerUserId"
+                },
+                "userId": {
+                  "column": "userId"
+                }
+              },
+              "namespaceId": "public",
+              "table": "oAuthIdentity"
             }
           },
           "Order": {
@@ -3366,7 +3458,7 @@
                 }
               },
               "phone": {
-                "nullable": false,
+                "nullable": true,
                 "type": {
                   "codecId": "pg/text@1",
                   "kind": "scalar"
@@ -3415,6 +3507,21 @@
                 },
                 "to": {
                   "model": "Customer",
+                  "namespace": "public"
+                }
+              },
+              "oauthIdentities": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "userId"
+                  ]
+                },
+                "to": {
+                  "model": "OAuthIdentity",
                   "namespace": "public"
                 }
               },
@@ -4743,6 +4850,89 @@
                 {
                   "columns": [
                     "invoiceNumber"
+                  ]
+                }
+              ]
+            },
+            "oAuthIdentity": {
+              "columns": {
+                "createdAt": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                },
+                "email": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "id": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "expression": "autoincrement()",
+                    "kind": "function"
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "provider": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "providerUserId": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "userId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [
+                {
+                  "source": {
+                    "columns": [
+                      "userId"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "oAuthIdentity"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "user"
+                  }
+                }
+              ],
+              "indexes": [
+                {
+                  "columns": [
+                    "userId"
+                  ],
+                  "name": "oAuthIdentity_userId_idx_a489d58a",
+                  "prefix": "oAuthIdentity_userId_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": [
+                {
+                  "columns": [
+                    "provider",
+                    "providerUserId"
                   ]
                 }
               ]
@@ -6152,7 +6342,7 @@
                 "phone": {
                   "codecId": "pg/text@1",
                   "nativeType": "text",
-                  "nullable": false
+                  "nullable": true
                 },
                 "status": {
                   "codecId": "pg/text@1",
@@ -6432,7 +6622,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "10631d3d0c02408fe74464095005692b80d9d1cc0ec7e77e79942490a2f74ab3"
+    "storageHash": "037bd329a4b6b9e23a6479b6b15ded0525f0493bde5362ffdf8f32c78fcc172d"
   },
   "capabilities": {
     "postgres": {

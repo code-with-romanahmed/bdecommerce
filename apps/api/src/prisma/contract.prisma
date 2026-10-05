@@ -207,7 +207,7 @@ model Branch {
 model User {
   id                 Int                 @id @default(autoincrement())
   organizationId     Int
-  phone              String?              @unique
+  phone              String?             @unique
   email              String?             @unique
   name               String?
   status             RecordStatus        @default(ACTIVE)
@@ -217,9 +217,23 @@ model User {
   userRoles          UserRole[]
   customer           Customer?
   cashierAssignments CashierAssignment[] @relation("CashierAssignments")
-  oauthIdentities OAuthIdentity[]
+  oauthIdentities     OAuthIdentity[]
+
   @@index([organizationId])
-  
+}
+
+model OAuthIdentity {
+  id             Int               @id @default(autoincrement())
+  userId         Int
+  provider       String
+  providerUserId String
+  email          String?
+  createdAt      TimestamptzString @default(now())
+
+  user           User              @relation(fields: [userId], references: [id])
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
 }
 
 model Role {
@@ -494,18 +508,4 @@ model CashierAssignment {
   @@index([organizationId])
   @@index([cashierId, isActive])
   @@index([customerId, isActive])
-}
-
-model OAuthIdentity {
-  id             Int      @id @default(autoincrement())
-  userId         Int
-  provider       String   // 'GOOGLE' | 'FACEBOOK'
-  providerUserId String
-  email          String?
-  createdAt      TimestamptzString @default(now())
-
-  user           User     @relation(fields: [userId], references: [id])
-
-  @@unique([provider, providerUserId])
-  @@index([userId])
 }

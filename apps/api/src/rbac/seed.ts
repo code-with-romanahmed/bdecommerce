@@ -81,6 +81,11 @@ const permissions = [
   name: 'Create invoices',
   description: 'Manually (re)generate an invoice for an order',
 },
+{
+  code: 'payment.create',
+  name: 'Record payments',
+  description: 'Record a payment against an order (own order for customers; any order in the organization for staff)',
+},
 ] as const;
 
 const rolePermissions: Record<string, string[]> = {
@@ -107,6 +112,7 @@ const rolePermissions: Record<string, string[]> = {
     'cart.update',
     'invoice.read',
     'invoice.create',
+    'payment.create',
   ],
 
   CASHIER: [
@@ -120,6 +126,7 @@ const rolePermissions: Record<string, string[]> = {
     'cart.update',
     'invoice.read',
     'invoice.create',
+    'payment.create',
   ],
 
   WAREHOUSE: [
@@ -139,6 +146,7 @@ const rolePermissions: Record<string, string[]> = {
     'cart.read',
     'cart.update',
      'invoice.read',
+    'payment.create',
   ],
 };
 

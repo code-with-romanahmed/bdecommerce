@@ -9,6 +9,7 @@ import authConfig from './auth.config.js';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { JwtAuthGuard } from './jwt-auth.guard.js';
+import { OAuthService } from './oauth.service.js';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { JwtAuthGuard } from './jwt-auth.guard.js';
     AuthService,
     AuthSessionService,
     JwtAuthGuard,
+    OAuthService,
   ],
   exports: [
     AuthService,

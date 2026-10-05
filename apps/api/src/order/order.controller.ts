@@ -38,7 +38,7 @@ export class OrderController {
   }
 
   @Post(':id/payments')
-  @RequirePermission('order.update')
+  @RequirePermission('order.create')
   @UseGuards(OrderAccessGuard)
   createPayment(
     @OrganizationId() organizationId: number,

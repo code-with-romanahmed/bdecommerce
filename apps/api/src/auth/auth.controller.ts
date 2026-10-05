@@ -20,6 +20,11 @@ import { PermissionGuard } from '../rbac/permission.guard.js';
 import { AuthService } from './auth.service.js';
 import type { AuthenticatedRequest } from './jwt-auth.guard.js';
 import { JwtAuthGuard } from './jwt-auth.guard.js';
+import {
+  CompleteOAuthRegistrationDto,
+  GoogleLoginDto,
+} from './oauth.dto.js';
+import { OAuthService } from './oauth.service.js';
 
 class RefreshDto {
   @IsString()
@@ -50,6 +55,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly otpService: OtpService,
+    private readonly oauthService: OAuthService,
   ) {}
 
   @Post('login')
@@ -86,6 +92,64 @@ if (!user) {
     body.deviceId,
     body.deviceName,
   );
+
+    return {
+      message: 'Login successful',
+      ...session,
+      user,
+    };
+  }
+
+  // -------------------------------------------------------------------
+  // Google OAuth: two-step flow.
+  //
+  // Step 1 (this endpoint): frontend sends the Google ID token. If this
+  // Google account is already linked, logs straight in. Otherwise returns
+  // a tempToken and the frontend must collect a phone number, call
+  // POST /auth/otp/generate with it, then call /auth/oauth/complete.
+  // -------------------------------------------------------------------
+  @Post('oauth/google')
+  async loginWithGoogle(
+    @Body() body: GoogleLoginDto,
+  ) {
+    const result = await this.oauthService.loginWithGoogle(
+      body.idToken,
+      body.deviceId,
+      body.deviceName,
+    );
+
+    if (result.status === 'logged_in') {
+      return {
+        message: 'Login successful',
+        ...result.session,
+        user: result.user,
+      };
+    }
+
+    return {
+      message: 'Phone verification required to complete registration',
+      requiresPhoneVerification: true,
+      tempToken: result.tempToken,
+      suggestedEmail: result.suggestedEmail,
+      suggestedName: result.suggestedName,
+    };
+  }
+
+  // Step 2: tempToken + an OTP-verified phone number completes the
+  // account (link to an existing account by phone/email, or create a
+  // new one), then returns a normal session.
+  @Post('oauth/complete')
+  async completeOAuthRegistration(
+    @Body() body: CompleteOAuthRegistrationDto,
+  ) {
+    const { session, user } =
+      await this.oauthService.completeRegistration(
+        body.tempToken,
+        body.phone,
+        body.otp,
+        body.deviceId,
+        body.deviceName,
+      );
 
     return {
       message: 'Login successful',
