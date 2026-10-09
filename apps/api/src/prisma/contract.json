@@ -2570,6 +2570,13 @@
                   "kind": "scalar"
                 }
               },
+              "organizationId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
               "status": {
                 "nullable": false,
                 "type": {
@@ -2628,6 +2635,9 @@
                 },
                 "orderId": {
                   "column": "orderId"
+                },
+                "organizationId": {
+                  "column": "organizationId"
                 },
                 "status": {
                   "column": "status"
@@ -5563,6 +5573,11 @@
                   "nativeType": "int4",
                   "nullable": false
                 },
+                "organizationId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": false
+                },
                 "status": {
                   "codecId": "pg/text@1",
                   "default": {
@@ -5613,10 +5628,11 @@
                 },
                 {
                   "columns": [
+                    "organizationId",
                     "transactionId"
                   ],
-                  "name": "payment_transactionId_idx_d3180832",
-                  "prefix": "payment_transactionId_idx",
+                  "name": "payment_organizationId_transactionId_idx_a5842b20",
+                  "prefix": "payment_organizationId_transactionId_idx",
                   "unique": false
                 }
               ],
@@ -6622,7 +6638,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "037bd329a4b6b9e23a6479b6b15ded0525f0493bde5362ffdf8f32c78fcc172d"
+    "storageHash": "92eff8560d30c39dc274e531b5abd1eb0eaf5cd84ba9c0f09014c6658cf2fd44"
   },
   "capabilities": {
     "postgres": {

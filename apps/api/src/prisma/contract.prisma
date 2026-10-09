@@ -154,6 +154,7 @@ model OrderItem {
 
 model Payment {
   id                Int               @id @default(autoincrement())
+  organizationId    Int
   orderId           Int
   amount            Numeric(12, 2)
   currency          String            @default("BDT")
@@ -165,7 +166,7 @@ model Payment {
   order             Order             @relation(fields: [orderId], references: [id])
 
   @@index([orderId])
-  @@index([transactionId])
+  @@index([organizationId, transactionId])
 }
 
 model Organization {
