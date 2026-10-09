@@ -60,6 +60,10 @@
       "model": "Payment",
       "namespace": "public"
     },
+    "paymentIntent": {
+      "model": "PaymentIntent",
+      "namespace": "public"
+    },
     "permission": {
       "model": "Permission",
       "namespace": "public"
@@ -212,6 +216,27 @@
               {
                 "name": "BRAND",
                 "value": "BRAND"
+              }
+            ]
+          },
+          "PaymentIntentStatus": {
+            "codecId": "pg/text@1",
+            "members": [
+              {
+                "name": "INITIATED",
+                "value": "INITIATED"
+              },
+              {
+                "name": "COMPLETED",
+                "value": "COMPLETED"
+              },
+              {
+                "name": "FAILED",
+                "value": "FAILED"
+              },
+              {
+                "name": "NEEDS_REVIEW",
+                "value": "NEEDS_REVIEW"
               }
             ]
           },
@@ -2648,6 +2673,193 @@
               },
               "namespaceId": "public",
               "table": "payment"
+            }
+          },
+          "PaymentIntent": {
+            "fields": {
+              "amount": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/numeric@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 12,
+                    "scale": 2
+                  }
+                }
+              },
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "kind": "scalar"
+                }
+              },
+              "currency": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "customerId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "failureReason": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "gatewayPaymentId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "invoiceNumber": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "orderId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "organizationId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "provider": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                },
+                "valueSet": {
+                  "entityKind": "enum",
+                  "entityName": "PaymentMethod",
+                  "namespaceId": "public",
+                  "plane": "domain"
+                }
+              },
+              "publicId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "redirectUrl": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "status": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                },
+                "valueSet": {
+                  "entityKind": "enum",
+                  "entityName": "PaymentIntentStatus",
+                  "namespaceId": "public",
+                  "plane": "domain"
+                }
+              },
+              "transactionId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "userId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {},
+            "storage": {
+              "fields": {
+                "amount": {
+                  "column": "amount"
+                },
+                "createdAt": {
+                  "column": "createdAt"
+                },
+                "currency": {
+                  "column": "currency"
+                },
+                "customerId": {
+                  "column": "customerId"
+                },
+                "failureReason": {
+                  "column": "failureReason"
+                },
+                "gatewayPaymentId": {
+                  "column": "gatewayPaymentId"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "invoiceNumber": {
+                  "column": "invoiceNumber"
+                },
+                "orderId": {
+                  "column": "orderId"
+                },
+                "organizationId": {
+                  "column": "organizationId"
+                },
+                "provider": {
+                  "column": "provider"
+                },
+                "publicId": {
+                  "column": "publicId"
+                },
+                "redirectUrl": {
+                  "column": "redirectUrl"
+                },
+                "status": {
+                  "column": "status"
+                },
+                "transactionId": {
+                  "column": "transactionId"
+                },
+                "userId": {
+                  "column": "userId"
+                }
+              },
+              "namespaceId": "public",
+              "table": "paymentIntent"
             }
           },
           "Permission": {
@@ -5643,6 +5855,185 @@
               },
               "uniques": []
             },
+            "paymentIntent": {
+              "checks": [
+                {
+                  "expression": "\"provider\" IN ('COD', 'BKASH', 'NAGAD', 'ROCKET', 'CARD', 'OTHER')",
+                  "name": "paymentIntent_provider_check_5cf069c7",
+                  "prefix": "paymentIntent_provider_check"
+                },
+                {
+                  "expression": "\"status\" IN ('INITIATED', 'COMPLETED', 'FAILED', 'NEEDS_REVIEW')",
+                  "name": "paymentIntent_status_check_fbb3901c",
+                  "prefix": "paymentIntent_status_check"
+                }
+              ],
+              "columns": {
+                "amount": {
+                  "codecId": "pg/numeric@1",
+                  "nativeType": "numeric",
+                  "nullable": false,
+                  "typeParams": {
+                    "precision": 12,
+                    "scale": 2
+                  }
+                },
+                "createdAt": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                },
+                "currency": {
+                  "codecId": "pg/text@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "BDT"
+                  },
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "customerId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": true
+                },
+                "failureReason": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "gatewayPaymentId": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "id": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "expression": "autoincrement()",
+                    "kind": "function"
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "invoiceNumber": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "orderId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "organizationId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "provider": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false,
+                  "valueSet": {
+                    "entityKind": "valueSet",
+                    "entityName": "PaymentMethod",
+                    "namespaceId": "public",
+                    "plane": "storage"
+                  }
+                },
+                "publicId": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "redirectUrl": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "status": {
+                  "codecId": "pg/text@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "INITIATED"
+                  },
+                  "nativeType": "text",
+                  "nullable": false,
+                  "valueSet": {
+                    "entityKind": "valueSet",
+                    "entityName": "PaymentIntentStatus",
+                    "namespaceId": "public",
+                    "plane": "storage"
+                  }
+                },
+                "transactionId": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "userId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [],
+              "indexes": [
+                {
+                  "columns": [
+                    "orderId"
+                  ],
+                  "name": "paymentIntent_orderId_idx_d284871b",
+                  "prefix": "paymentIntent_orderId_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "organizationId",
+                    "status"
+                  ],
+                  "name": "paymentIntent_organizationId_status_idx_21af5e82",
+                  "prefix": "paymentIntent_organizationId_status_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "status"
+                  ],
+                  "name": "paymentIntent_status_idx_e98638ab",
+                  "prefix": "paymentIntent_status_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": [
+                {
+                  "columns": [
+                    "publicId"
+                  ]
+                },
+                {
+                  "columns": [
+                    "invoiceNumber"
+                  ]
+                },
+                {
+                  "columns": [
+                    "provider",
+                    "gatewayPaymentId"
+                  ]
+                }
+              ]
+            },
             "permission": {
               "columns": {
                 "code": {
@@ -6573,6 +6964,15 @@
                 "BRAND"
               ]
             },
+            "PaymentIntentStatus": {
+              "kind": "valueSet",
+              "values": [
+                "INITIATED",
+                "COMPLETED",
+                "FAILED",
+                "NEEDS_REVIEW"
+              ]
+            },
             "PaymentMethod": {
               "kind": "valueSet",
               "values": [
@@ -6638,7 +7038,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "92eff8560d30c39dc274e531b5abd1eb0eaf5cd84ba9c0f09014c6658cf2fd44"
+    "storageHash": "94d05582c865d19d761b2b8f0d3efdb9b9d8eb4195657f855551ec108e7b4f91"
   },
   "capabilities": {
     "postgres": {

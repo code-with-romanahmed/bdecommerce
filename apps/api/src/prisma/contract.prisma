@@ -510,3 +510,34 @@ model CashierAssignment {
   @@index([cashierId, isActive])
   @@index([customerId, isActive])
 }
+
+enum PaymentIntentStatus {
+  INITIATED
+  COMPLETED
+  FAILED
+  NEEDS_REVIEW
+}
+
+model PaymentIntent {
+  id               Int                 @id @default(autoincrement())
+  publicId         String              @unique
+  organizationId   Int
+  orderId          Int
+  userId           Int
+  customerId       Int?
+  provider         PaymentMethod
+  amount           Numeric(12, 2)
+  currency         String              @default("BDT")
+  invoiceNumber    String              @unique
+  gatewayPaymentId String
+  redirectUrl      String
+  status           PaymentIntentStatus @default(INITIATED)
+  transactionId    String?
+  failureReason    String?
+  createdAt        TimestamptzString   @default(now())
+
+  @@unique([provider, gatewayPaymentId])
+  @@index([orderId])
+  @@index([organizationId, status])
+  @@index([status])
+}
