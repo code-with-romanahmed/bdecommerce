@@ -65,9 +65,15 @@ export class OAuthService {
       throw new UnauthorizedException('Invalid Google token');
     }
 
+    // শুধু Google-এর নিজের যাচাই করা email বিশ্বাসযোগ্য। email_verified
+    // true না হলে email-টা পুরোপুরি বাদ — না কোনো account-এর সাথে link
+    // হবে, না suggestion হিসেবে ফেরত যাবে, না সংরক্ষণ হবে।
+    const verifiedEmail =
+      payload.email_verified === true ? (payload.email ?? null) : null;
+
     return {
       providerUserId: payload.sub,
-      email: payload.email ?? null,
+      email: verifiedEmail,
       name: payload.name ?? null,
     };
   }

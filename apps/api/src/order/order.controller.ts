@@ -1,6 +1,8 @@
 import {
+  BadRequestException,
   Body,
   Controller,
+  ForbiddenException,
   Get,
   Param,
   ParseIntPipe,
@@ -20,6 +22,10 @@ import { OrderAccessService } from './order-access.service.js';
 import { CreateOrderDto, CreatePaymentDto } from './order.dto.js';
 import { OrderService } from './order.service.js';
 
+// গেটওয়ে-যাচাই ছাড়া এই মাধ্যমগুলোর পেমেন্ট হাতে রেকর্ড করা নিষিদ্ধ
+// (শুধু payment.override থাকা ইউজার পারে)। COD/OTHER কাউন্টারে নগদের জন্য খোলা।
+const ONLINE_METHODS = ['BKASH', 'NAGAD', 'ROCKET', 'CARD'];
+
 @Controller('orders')
 @UseGuards(JwtAuthGuard, PermissionGuard)
 export class OrderController {
@@ -28,24 +34,109 @@ export class OrderController {
     private readonly orderAccess: OrderAccessService,
   ) {}
 
+  // Hybrid (POS + E-commerce) order তৈরি:
+  //  - CUSTOMER: customerId সবসময় নিজের (অন্যেরটা দিলে 403), কোনো discount নয়
+  //  - ADMIN/MANAGER: যেকোনো customer; CASHIER: শুধু assigned customer
+  //  - Discount: OrderAccessService.getDiscountPolicy অনুযায়ী
   @Post()
   @RequirePermission('order.create')
-  createOrder(
+  async createOrder(
     @OrganizationId() organizationId: number,
+    @Req() request: AuthenticatedRequest,
     @Body() dto: CreateOrderDto,
   ) {
-    return this.orderService.createOrder(organizationId, dto);
+    const user = request.authUser!;
+
+    let customerId: number | undefined = dto.customerId;
+
+    const ownCustomerId = await this.orderAccess.getOwnCustomerId(user);
+
+    if (ownCustomerId !== null) {
+      if (customerId !== undefined && customerId !== ownCustomerId) {
+        throw new ForbiddenException(
+          'You can only place orders for your own account',
+        );
+      }
+
+      customerId = ownCustomerId;
+    }
+
+    if (customerId === undefined) {
+      throw new BadRequestException('customerId is required');
+    }
+
+    const canOrderForCustomer = await this.orderAccess.canAccessOrder(user, {
+      customerId,
+    });
+
+    if (!canOrderForCustomer) {
+      throw new ForbiddenException(
+        'You cannot place orders for this customer',
+      );
+    }
+
+    await this.assertDiscountAllowed(user, dto);
+
+    return this.orderService.createOrder(organizationId, {
+      ...dto,
+      customerId,
+    });
   }
 
+  // কাউন্টারে staff-এর হাতে-রেকর্ড করা পেমেন্ট (নগদ ইত্যাদি)। Customer-দের
+  // জন্য নয় — তারা POST /payments/orders/:id/online ব্যবহার করবে।
   @Post(':id/payments')
-  @RequirePermission('order.create')
+  @RequirePermission('payment.create')
   @UseGuards(OrderAccessGuard)
-  createPayment(
+  async createPayment(
     @OrganizationId() organizationId: number,
+    @Req() request: AuthenticatedRequest,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: CreatePaymentDto,
   ) {
+    const user = request.authUser!;
+
+    if (!(await this.orderAccess.isStaff(user))) {
+      throw new ForbiddenException(
+        'Customers must pay through online checkout',
+      );
+    }
+
+    if (
+      ONLINE_METHODS.includes(dto.method) &&
+      !(await this.orderAccess.canOverrideOnlinePayments(user))
+    ) {
+      throw new ForbiddenException(
+        'Online payments must go through the payment gateway',
+      );
+    }
+
     return this.orderService.createPayment(organizationId, id, dto);
+  }
+
+  private async assertDiscountAllowed(
+    user: NonNullable<AuthenticatedRequest['authUser']>,
+    dto: CreateOrderDto,
+  ): Promise<void> {
+    if (!dto.discountType && dto.discountValue === undefined) {
+      return;
+    }
+
+    const policy = await this.orderAccess.getDiscountPolicy(user);
+
+    if (!policy.allowed) {
+      throw new ForbiddenException('You are not allowed to apply discounts');
+    }
+
+    if (policy.maxPercent !== null) {
+      const isPercent = dto.discountType === 'PERCENTAGE';
+
+      if (!isPercent || (dto.discountValue ?? 0) > policy.maxPercent) {
+        throw new ForbiddenException(
+          `Your role can apply only percentage discounts up to ${policy.maxPercent}%`,
+        );
+      }
+    }
   }
 
   @Patch(':id/confirm')

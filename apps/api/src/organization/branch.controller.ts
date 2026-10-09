@@ -1,27 +1,46 @@
 import {
-    Body,
-    Controller,
-    Get,
-    Param,
-    ParseIntPipe,
-    Post,
-    UseGuards,
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  Param,
+  ParseIntPipe,
+  Post,
+  UseGuards,
 } from '@nestjs/common';
 
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { OrganizationId } from '../auth/organization-context.decorator.js';
+import { RequirePermission } from '../rbac/permission.decorator.js';
+import { PermissionGuard } from '../rbac/permission.guard.js';
 
 import { CreateBranchDto } from './branch.dto.js';
 import { BranchService } from './branch.service.js';
 
 @Controller('organizations/:organizationId/branches')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard)
 export class BranchController {
   constructor(
     private readonly branchService: BranchService,
   ) {}
 
+  /**
+   * URL-এর organizationId অবশ্যই লগইন করা ইউজারের organization-এর
+   * সমান হতে হবে। না মিললে 403।
+   */
+  private assertSameOrganization(
+    organizationIdFromUrl: number,
+    organizationId: number,
+  ): void {
+    if (organizationIdFromUrl !== organizationId) {
+      throw new ForbiddenException(
+        'You cannot access another organization',
+      );
+    }
+  }
+
   @Post()
+  @RequirePermission('branch.create')
   async create(
     @Param('organizationId', ParseIntPipe)
     organizationIdFromUrl: number,
@@ -32,14 +51,10 @@ export class BranchController {
     @Body()
     dto: CreateBranchDto,
   ) {
-    if (
-      organizationIdFromUrl !== organizationId
-    ) {
-      return this.branchService.getById(
-        organizationId,
-        -1,
-      );
-    }
+    this.assertSameOrganization(
+      organizationIdFromUrl,
+      organizationId,
+    );
 
     return this.branchService.create(
       organizationId,
@@ -48,6 +63,7 @@ export class BranchController {
   }
 
   @Get()
+  @RequirePermission('branch.read')
   async list(
     @Param('organizationId', ParseIntPipe)
     organizationIdFromUrl: number,
@@ -55,14 +71,10 @@ export class BranchController {
     @OrganizationId()
     organizationId: number,
   ) {
-    if (
-      organizationIdFromUrl !== organizationId
-    ) {
-      return this.branchService.getById(
-        organizationId,
-        -1,
-      );
-    }
+    this.assertSameOrganization(
+      organizationIdFromUrl,
+      organizationId,
+    );
 
     return this.branchService.list(
       organizationId,
@@ -70,6 +82,7 @@ export class BranchController {
   }
 
   @Get(':id')
+  @RequirePermission('branch.read')
   async getById(
     @Param('organizationId', ParseIntPipe)
     organizationIdFromUrl: number,
@@ -80,14 +93,10 @@ export class BranchController {
     @OrganizationId()
     organizationId: number,
   ) {
-    if (
-      organizationIdFromUrl !== organizationId
-    ) {
-      return this.branchService.getById(
-        organizationId,
-        -1,
-      );
-    }
+    this.assertSameOrganization(
+      organizationIdFromUrl,
+      organizationId,
+    );
 
     return this.branchService.getById(
       organizationId,

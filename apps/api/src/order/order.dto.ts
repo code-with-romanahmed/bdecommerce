@@ -17,6 +17,9 @@ const PAYMENT_METHODS = [
 export type PaymentMethodInput = (typeof PAYMENT_METHODS)[number];
 
 export class CreateOrderDto {
+  // Customer নিজের account থেকে order করলে এটা বাদ দেওয়া যায় (সার্ভার নিজের
+  // customer id বসায়)। Staff-কে দিতে হবে — controller-এ যাচাই হয়।
+  @IsOptional()
   @IsInt()
   @IsPositive()
   customerId!: number;
@@ -48,4 +51,3 @@ export class CreatePaymentDto {
   @IsString()
   transactionId?: string;
 }
-

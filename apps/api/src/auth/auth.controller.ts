@@ -15,6 +15,8 @@ import {
 
 import { VerifyOtpDto } from '../otp/otp.dto.js';
 import { OtpService } from '../otp/otp.service.js';
+import { RateLimit } from '../rate-limit/rate-limit.decorator.js';
+import { RateLimitGuard } from '../rate-limit/rate-limit.guard.js';
 import { RequirePermission } from '../rbac/permission.decorator.js';
 import { PermissionGuard } from '../rbac/permission.guard.js';
 import { AuthService } from './auth.service.js';
@@ -67,6 +69,8 @@ export class AuthController {
   }
 
   @Post('otp/verify-login')
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ name: 'verify-login', by: 'ip', limit: 20, windowSeconds: 600 })
   async verifyLogin(
     @Body() body: VerifyLoginSessionDto,
   ) {
@@ -109,6 +113,8 @@ if (!user) {
   // POST /auth/otp/generate with it, then call /auth/oauth/complete.
   // -------------------------------------------------------------------
   @Post('oauth/google')
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ name: 'oauth-google', by: 'ip', limit: 30, windowSeconds: 600 })
   async loginWithGoogle(
     @Body() body: GoogleLoginDto,
   ) {
@@ -139,6 +145,8 @@ if (!user) {
   // account (link to an existing account by phone/email, or create a
   // new one), then returns a normal session.
   @Post('oauth/complete')
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ name: 'oauth-complete', by: 'ip', limit: 20, windowSeconds: 600 })
   async completeOAuthRegistration(
     @Body() body: CompleteOAuthRegistrationDto,
   ) {
@@ -159,6 +167,8 @@ if (!user) {
   }
 
   @Post('refresh')
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ name: 'refresh', by: 'ip', limit: 60, windowSeconds: 600 })
   async refresh(
     @Body() body: RefreshDto,
   ) {

@@ -5,16 +5,27 @@ import {
   type FunctionDeclaration,
   type Part,
 } from '@google/generative-ai';
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 
+import type { AuthUser } from '../auth/auth.types.js';
+import { OrderAccessService } from '../order/order-access.service.js';
 import { OrderService } from '../order/order.service.js';
 import { db } from '../prisma/db.js';
 import { RbacService } from '../rbac/rbac.service.js';
+import { RedisService } from '../redis/redis.service.js';
 import {
   buildCustomerTools,
   buildStaffTools,
+  confirmPendingOrderAction,
   executeCustomerTool,
   executeStaffTool,
+  getStaffToolOptions,
+  type PendingOrderAction,
+  type StaffToolContext,
 } from './ai-agent-tools.js';
 import { AI_AGENT_CONFIG } from './ai-agent.config.js';
 
@@ -27,7 +38,9 @@ const CUSTOMER_SYSTEM_PROMPT = `তুমি একটা বাংলাদে�
 
 Shipping policy: ঢাকার ভেতরে ৬০৳, ঢাকার বাইরে ১২০৳ শিপিং চার্জ। ডেলিভারির সময় ২-৫ কার্যদিবস। পণ্য ফেরত DELIVERED হওয়ার ৭ দিনের মধ্যে করা যায়।`;
 
-const STAFF_SYSTEM_PROMPT = `তুমি একটা e-commerce প্ল্যাটফর্মের স্টাফ সহকারী। স্টাফকে order খুঁজতে, status পরিবর্তন করতে, risk-flag বুঝতে, inventory check করতে, এবং sales summary বানাতে সাহায্য করো। সংক্ষিপ্ত, কার্যকর উত্তর দাও।`;
+const STAFF_SYSTEM_PROMPT = `তুমি একটা e-commerce প্ল্যাটফর্মের স্টাফ সহকারী। স্টাফকে order খুঁজতে, status পরিবর্তন করতে, risk-flag বুঝতে, inventory check করতে, এবং sales summary বানাতে সাহায্য করো। সংক্ষিপ্ত, কার্যকর উত্তর দাও।
+
+গুরুত্বপূর্ণ: update_order_status টুল কল করলে status সঙ্গে সঙ্গে বদলায় না — এটা শুধু একটা নিশ্চিতকরণের অনুরোধ তৈরি করে। ব্যবহারকারীকে স্পষ্ট করে জানাও কোন order-এ কোন পরিবর্তন হবে এবং নিশ্চিত করার বাটনে চাপ দিতে বলো। কখনোই বলবে না যে কাজটা সম্পন্ন হয়ে গেছে।`;
 
 const JSON_TYPE_TO_SCHEMA_TYPE: Record<string, SchemaType> = {
   object: SchemaType.OBJECT,
@@ -116,29 +129,84 @@ export class AiAgentService {
   constructor(
     private readonly rbacService: RbacService,
     private readonly orderService: OrderService,
+    private readonly orderAccess: OrderAccessService,
+    private readonly redisService: RedisService,
   ) {
     this.client = new GoogleGenerativeAI(AI_AGENT_CONFIG.apiKey);
   }
 
+  private buildStaffContext(user: AuthUser): StaffToolContext {
+    return {
+      user,
+      organizationId: user.organizationId,
+      orderService: this.orderService,
+      orderAccess: this.orderAccess,
+      rbac: this.rbacService,
+      redis: this.redisService.getClient(),
+    };
+  }
+
   async chat(
-    organizationId: number,
-    userId: number,
-    message: string,
+    user: AuthUser,
+    message: string | undefined,
     history: ChatMessage[],
-  ): Promise<{ reply: string; history: ChatMessage[] }> {
+    confirmActionId?: string,
+  ): Promise<{
+    reply: string;
+    history: ChatMessage[];
+    pendingActions?: PendingOrderAction[];
+  }> {
+    const { id: userId, organizationId } = user;
+
     const isStaff = await this.rbacService.hasPermission(
       userId,
       organizationId,
       'order.update',
     );
 
+    // ---- ব্যবহারকারী বাটন চেপে একটা pending action নিশ্চিত করেছে ----
+    // এই পথে LLM জড়িত নয়; action সরাসরি server-এ চলে।
+    if (confirmActionId) {
+      if (!isStaff) {
+        throw new ForbiddenException('এই কাজের অনুমতি নেই');
+      }
+
+      const outcome = await confirmPendingOrderAction(
+        this.buildStaffContext(user),
+        confirmActionId,
+      );
+
+      const reply = outcome.success
+        ? `✅ Order ${outcome.orderNumber}: "${outcome.action}" সম্পন্ন হয়েছে। নতুন status: ${outcome.status}`
+        : `❌ ${outcome.error}`;
+
+      return {
+        reply,
+        history: [
+          ...history,
+          { role: 'user', content: '[action নিশ্চিত করা হয়েছে]' },
+          { role: 'assistant', content: reply },
+        ],
+      };
+    }
+
+    const userMessage = (message ?? '').trim();
+
+    if (!userMessage) {
+      throw new BadRequestException('message প্রয়োজন');
+    }
+
     let systemPrompt: string;
     let tools: FunctionDeclaration[];
     let customerId: number | undefined;
+    let staffContext: StaffToolContext | undefined;
 
     if (isStaff) {
+      const options = await getStaffToolOptions(user, this.rbacService);
+
+      staffContext = this.buildStaffContext(user);
       systemPrompt = STAFF_SYSTEM_PROMPT;
-      tools = toGeminiTools(buildStaffTools());
+      tools = toGeminiTools(buildStaffTools(options));
     } else {
       const customer = await db.orm.public.Customer
         .where({ organizationId, userId })
@@ -166,10 +234,11 @@ export class AiAgentService {
 
     const contents: Content[] = [
       ...toGeminiHistory(history),
-      { role: 'user', parts: [{ text: message }] },
+      { role: 'user', parts: [{ text: userMessage }] },
     ];
 
     let finalText = '';
+    const pendingActions: PendingOrderAction[] = [];
 
     for (let turn = 0; turn < 5; turn++) {
       const result = await withRetry(() =>
@@ -197,13 +266,8 @@ export class AiAgentService {
       const functionResponses: Part[] = [];
 
       for (const call of functionCalls) {
-        const rawResult = isStaff
-          ? await executeStaffTool(
-              call.name,
-              call.args,
-              organizationId,
-              this.orderService,
-            )
+        const rawResult = staffContext
+          ? await executeStaffTool(call.name, call.args, staffContext)
           : await executeCustomerTool(
               call.name,
               call.args,
@@ -219,6 +283,15 @@ export class AiAgentService {
           parsedResult = { result: rawResult };
         }
 
+        if (staffContext && parsedResult.pendingConfirmation === true) {
+          pendingActions.push({
+            actionId: parsedResult.actionId,
+            orderNumber: parsedResult.orderNumber,
+            action: parsedResult.action,
+            currentStatus: parsedResult.currentStatus,
+          });
+        }
+
         functionResponses.push({
           functionResponse: {
             name: call.name,
@@ -231,12 +304,21 @@ export class AiAgentService {
       contents.push({ role: 'user', parts: functionResponses });
     }
 
+    if (!finalText && pendingActions.length > 0) {
+      finalText =
+        'নিচের পরিবর্তনগুলো নিশ্চিত করলে কার্যকর হবে। এখনো কিছুই বদলায়নি।';
+    }
+
     const updatedHistory: ChatMessage[] = [
       ...history,
-      { role: 'user', content: message },
+      { role: 'user', content: userMessage },
       { role: 'assistant', content: finalText },
     ];
 
-    return { reply: finalText, history: updatedHistory };
+    return {
+      reply: finalText,
+      history: updatedHistory,
+      ...(pendingActions.length > 0 ? { pendingActions } : {}),
+    };
   }
 }

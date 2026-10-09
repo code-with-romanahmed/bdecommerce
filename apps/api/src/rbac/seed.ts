@@ -86,6 +86,26 @@ const permissions = [
   name: 'Record payments',
   description: 'Record a payment against an order (own order for customers; any order in the organization for staff)',
 },
+{
+  code: 'branch.read',
+  name: 'Read branches',
+  description: 'View branches within the organization (staff only)',
+},
+{
+  code: 'branch.create',
+  name: 'Create branches',
+  description: 'Create branches within the organization',
+},
+{
+  code: 'order.create',
+  name: 'Create orders',
+  description: 'Place orders (customers: own account only; staff: customers they can access)',
+},
+{
+  code: 'payment.override',
+  name: 'Record online payments manually',
+  description: 'Manually record BKASH/NAGAD/ROCKET/CARD payments without gateway verification (ADMIN only)',
+},
 ] as const;
 
 const rolePermissions: Record<string, string[]> = {
@@ -103,6 +123,7 @@ const rolePermissions: Record<string, string[]> = {
     'product.create',
     'product.update',
     'order.read',
+    'order.create',
     'order.update',
     'inventory.read',
     'inventory.update',
@@ -113,11 +134,13 @@ const rolePermissions: Record<string, string[]> = {
     'invoice.read',
     'invoice.create',
     'payment.create',
+    'branch.read',
   ],
 
   CASHIER: [
     'product.read',
     'order.read',
+    'order.create',
     'order.update',
     'inventory.read',
     'customer.read',
@@ -127,12 +150,14 @@ const rolePermissions: Record<string, string[]> = {
     'invoice.read',
     'invoice.create',
     'payment.create',
+    'branch.read',
   ],
 
   WAREHOUSE: [
     'product.read',
     'inventory.read',
     'inventory.update',
+    'branch.read',
   ],
 
   DELIVERY_AGENT: [
@@ -143,6 +168,7 @@ const rolePermissions: Record<string, string[]> = {
     CUSTOMER: [
     'product.read',
     'order.read',
+    'order.create',
     'cart.read',
     'cart.update',
      'invoice.read',

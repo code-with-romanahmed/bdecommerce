@@ -10,6 +10,9 @@ export interface JwtPayload {
   sub: number;
   organizationId: number;
   phone: string | null;
+  // যে লগইন-সেশনের জন্য টোকেনটা ইস্যু হয়েছে। সেশন মুছে গেলে (logout/refresh/
+  // revoke) টোকেনও সঙ্গে সঙ্গে অচল হয়, মেয়াদ শেষের অপেক্ষা করতে হয় না।
+  sid: string;
 }
 
 // Issued after a Google/Facebook ID token has been verified but no

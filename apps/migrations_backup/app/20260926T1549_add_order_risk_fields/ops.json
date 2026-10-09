@@ -1,0 +1,527 @@
+[
+  {
+    "id": "table.cashierAssignment",
+    "label": "Create table \"cashierAssignment\"",
+    "summary": "Creates table \"cashierAssignment\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "cashierAssignment"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"cashierAssignment\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"cashierAssignment\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"cashierAssignment\"",
+        "sql": "CREATE TABLE \"public\".\"cashierAssignment\" (\n  \"cashierId\" int4 NOT NULL,\n  \"customerId\" int4 NOT NULL,\n  \"endedAt\" timestamptz,\n  \"id\" SERIAL NOT NULL,\n  \"isActive\" bool DEFAULT true NOT NULL,\n  \"organizationId\" int4 NOT NULL,\n  \"startedAt\" timestamptz DEFAULT (now()) NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"cashierAssignment\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"cashierAssignment\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.customer.userId",
+    "label": "Add column \"userId\" to \"customer\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "userId",
+        "table": "customer"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"userId\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "customer",
+          "userId"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"userId\"",
+        "sql": "ALTER TABLE \"public\".\"customer\" ADD COLUMN \"userId\" int4"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"userId\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "customer",
+          "userId"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.customer.customer_userId_key",
+    "label": "Add unique constraint on \"customer\" (userId)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "customer_userId_key",
+        "table": "customer"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"customer_userId_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "customer_userId_key",
+          "public",
+          "\"public\".\"customer\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"customer_userId_key\"",
+        "sql": "ALTER TABLE \"public\".\"customer\" ADD CONSTRAINT \"customer_userId_key\" UNIQUE (\"userId\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"customer_userId_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "customer_userId_key",
+          "public",
+          "\"public\".\"customer\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.cashierAssignment.cashierAssignment_cashierId_idx_f55c4cfd",
+    "label": "Create index \"cashierAssignment_cashierId_idx_f55c4cfd\" on \"cashierAssignment\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "cashierAssignment_cashierId_idx_f55c4cfd",
+        "table": "cashierAssignment"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"cashierAssignment_cashierId_idx_f55c4cfd\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"cashierAssignment_cashierId_idx_f55c4cfd\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"cashierAssignment_cashierId_idx_f55c4cfd\"",
+        "sql": "CREATE INDEX \"cashierAssignment_cashierId_idx_f55c4cfd\" ON \"public\".\"cashierAssignment\" (\"cashierId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"cashierAssignment_cashierId_idx_f55c4cfd\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"cashierAssignment_cashierId_idx_f55c4cfd\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.cashierAssignment.cashierAssignment_cashierId_isActive_idx_4e2765fa",
+    "label": "Create index \"cashierAssignment_cashierId_isActive_idx_4e2765fa\" on \"cashierAssignment\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "cashierAssignment_cashierId_isActive_idx_4e2765fa",
+        "table": "cashierAssignment"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"cashierAssignment_cashierId_isActive_idx_4e2765fa\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"cashierAssignment_cashierId_isActive_idx_4e2765fa\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"cashierAssignment_cashierId_isActive_idx_4e2765fa\"",
+        "sql": "CREATE INDEX \"cashierAssignment_cashierId_isActive_idx_4e2765fa\" ON \"public\".\"cashierAssignment\" (\"cashierId\", \"isActive\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"cashierAssignment_cashierId_isActive_idx_4e2765fa\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"cashierAssignment_cashierId_isActive_idx_4e2765fa\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.cashierAssignment.cashierAssignment_customerId_idx_b2a8a46c",
+    "label": "Create index \"cashierAssignment_customerId_idx_b2a8a46c\" on \"cashierAssignment\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "cashierAssignment_customerId_idx_b2a8a46c",
+        "table": "cashierAssignment"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"cashierAssignment_customerId_idx_b2a8a46c\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"cashierAssignment_customerId_idx_b2a8a46c\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"cashierAssignment_customerId_idx_b2a8a46c\"",
+        "sql": "CREATE INDEX \"cashierAssignment_customerId_idx_b2a8a46c\" ON \"public\".\"cashierAssignment\" (\"customerId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"cashierAssignment_customerId_idx_b2a8a46c\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"cashierAssignment_customerId_idx_b2a8a46c\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.cashierAssignment.cashierAssignment_customerId_isActive_idx_ff4775e0",
+    "label": "Create index \"cashierAssignment_customerId_isActive_idx_ff4775e0\" on \"cashierAssignment\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "cashierAssignment_customerId_isActive_idx_ff4775e0",
+        "table": "cashierAssignment"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"cashierAssignment_customerId_isActive_idx_ff4775e0\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"cashierAssignment_customerId_isActive_idx_ff4775e0\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"cashierAssignment_customerId_isActive_idx_ff4775e0\"",
+        "sql": "CREATE INDEX \"cashierAssignment_customerId_isActive_idx_ff4775e0\" ON \"public\".\"cashierAssignment\" (\"customerId\", \"isActive\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"cashierAssignment_customerId_isActive_idx_ff4775e0\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"cashierAssignment_customerId_isActive_idx_ff4775e0\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.cashierAssignment.cashierAssignment_organizationId_idx_2e17ef41",
+    "label": "Create index \"cashierAssignment_organizationId_idx_2e17ef41\" on \"cashierAssignment\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "cashierAssignment_organizationId_idx_2e17ef41",
+        "table": "cashierAssignment"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"cashierAssignment_organizationId_idx_2e17ef41\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"cashierAssignment_organizationId_idx_2e17ef41\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"cashierAssignment_organizationId_idx_2e17ef41\"",
+        "sql": "CREATE INDEX \"cashierAssignment_organizationId_idx_2e17ef41\" ON \"public\".\"cashierAssignment\" (\"organizationId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"cashierAssignment_organizationId_idx_2e17ef41\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"cashierAssignment_organizationId_idx_2e17ef41\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.customer.customer_userId_idx_a489d58a",
+    "label": "Create index \"customer_userId_idx_a489d58a\" on \"customer\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "customer_userId_idx_a489d58a",
+        "table": "customer"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"customer_userId_idx_a489d58a\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"customer_userId_idx_a489d58a\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"customer_userId_idx_a489d58a\"",
+        "sql": "CREATE INDEX \"customer_userId_idx_a489d58a\" ON \"public\".\"customer\" (\"userId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"customer_userId_idx_a489d58a\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"customer_userId_idx_a489d58a\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.cashierAssignment.cashierAssignment_organizationId_fkey",
+    "label": "Add foreign key \"cashierAssignment_organizationId_fkey\" on \"cashierAssignment\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "cashierAssignment_organizationId_fkey",
+        "table": "cashierAssignment"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"cashierAssignment_organizationId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "cashierAssignment_organizationId_fkey",
+          "public",
+          "\"public\".\"cashierAssignment\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"cashierAssignment_organizationId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"cashierAssignment\"\nADD CONSTRAINT \"cashierAssignment_organizationId_fkey\"\nFOREIGN KEY (\"organizationId\")\nREFERENCES \"public\".\"organization\" (\"id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"cashierAssignment_organizationId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "cashierAssignment_organizationId_fkey",
+          "public",
+          "\"public\".\"cashierAssignment\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.cashierAssignment.cashierAssignment_cashierId_fkey",
+    "label": "Add foreign key \"cashierAssignment_cashierId_fkey\" on \"cashierAssignment\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "cashierAssignment_cashierId_fkey",
+        "table": "cashierAssignment"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"cashierAssignment_cashierId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "cashierAssignment_cashierId_fkey",
+          "public",
+          "\"public\".\"cashierAssignment\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"cashierAssignment_cashierId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"cashierAssignment\"\nADD CONSTRAINT \"cashierAssignment_cashierId_fkey\"\nFOREIGN KEY (\"cashierId\")\nREFERENCES \"public\".\"user\" (\"id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"cashierAssignment_cashierId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "cashierAssignment_cashierId_fkey",
+          "public",
+          "\"public\".\"cashierAssignment\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.cashierAssignment.cashierAssignment_customerId_fkey",
+    "label": "Add foreign key \"cashierAssignment_customerId_fkey\" on \"cashierAssignment\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "cashierAssignment_customerId_fkey",
+        "table": "cashierAssignment"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"cashierAssignment_customerId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "cashierAssignment_customerId_fkey",
+          "public",
+          "\"public\".\"cashierAssignment\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"cashierAssignment_customerId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"cashierAssignment\"\nADD CONSTRAINT \"cashierAssignment_customerId_fkey\"\nFOREIGN KEY (\"customerId\")\nREFERENCES \"public\".\"customer\" (\"id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"cashierAssignment_customerId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "cashierAssignment_customerId_fkey",
+          "public",
+          "\"public\".\"cashierAssignment\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.customer.customer_userId_fkey",
+    "label": "Add foreign key \"customer_userId_fkey\" on \"customer\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "customer_userId_fkey",
+        "table": "customer"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"customer_userId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "customer_userId_fkey",
+          "public",
+          "\"public\".\"customer\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"customer_userId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"customer\"\nADD CONSTRAINT \"customer_userId_fkey\"\nFOREIGN KEY (\"userId\")\nREFERENCES \"public\".\"user\" (\"id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"customer_userId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "customer_userId_fkey",
+          "public",
+          "\"public\".\"customer\""
+        ]
+      }
+    ]
+  }
+]
