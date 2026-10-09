@@ -9,6 +9,7 @@ import { OnlinePaymentController } from './online-payment.controller.js';
 import { OnlinePaymentService } from './online-payment.service.js';
 import paymentGatewayConfig from './payment-gateway.config.js';
 import { PaymentIntentStore } from './payment-intent.store.js';
+import { PaymentReconciliationService } from './payment-reconciliation.service.js';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { PaymentIntentStore } from './payment-intent.store.js';
     NagadGateway,
     PaymentIntentStore,
     OnlinePaymentService,
+    PaymentReconciliationService,
   ],
 })
 export class PaymentGatewayModule {}

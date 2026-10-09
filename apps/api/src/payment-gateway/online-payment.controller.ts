@@ -1,22 +1,22 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 
 import {
-    Body,
-    Controller,
-    Get,
-    Headers,
-    HttpCode,
-    Inject,
-    Logger,
-    NotFoundException,
-    Param,
-    ParseIntPipe,
-    Post,
-    Query,
-    Req,
-    Res,
-    UnauthorizedException,
-    UseGuards,
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  Inject,
+  Logger,
+  NotFoundException,
+  Param,
+  ParseIntPipe,
+  Post,
+  Query,
+  Req,
+  Res,
+  UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import type { Response } from 'express';
@@ -78,6 +78,19 @@ export class OnlinePaymentController {
       orderId,
       dto.provider,
       dto.amount,
+    );
+  }
+
+  // -------------------------------------------------------------------
+  // টাকা এসেছে কিন্তু রেকর্ড হয়নি / অমিল পেমেন্টের তালিকা — শুধু
+  // payment.override-ধারী (ADMIN) দেখতে পারবে, নিজের organization-এর।
+  // -------------------------------------------------------------------
+  @Get('review')
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @RequirePermission('payment.override')
+  listNeedingReview(@Req() request: AuthenticatedRequest) {
+    return this.onlinePayments.listNeedingReview(
+      request.authUser!.organizationId,
     );
   }
 

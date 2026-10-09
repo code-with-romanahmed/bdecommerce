@@ -1,13 +1,13 @@
 import { randomUUID } from 'node:crypto';
 
 import {
-    BadRequestException,
-    ConflictException,
-    Inject,
-    Injectable,
-    Logger,
-    NotFoundException,
-    ServiceUnavailableException,
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 
@@ -18,9 +18,9 @@ import { BkashGateway } from './bkash.gateway.js';
 import { NagadGateway } from './nagad.gateway.js';
 import paymentGatewayConfig from './payment-gateway.config.js';
 import type {
-    OnlineProvider,
-    PaymentGateway,
-    VerifyMode,
+  OnlineProvider,
+  PaymentGateway,
+  VerifyMode,
 } from './payment-gateway.types.js';
 import { PaymentIntentStore, type PaymentIntent } from './payment-intent.store.js';
 
@@ -259,7 +259,9 @@ export class OnlinePaymentService {
     if (result.kind === 'FAILED') {
       // FAILED চূড়ান্ত নয়: পরে সফল যাচাই এলে সেটাই জেতে (COMPLETED-ই শুধু চূড়ান্ত)
       if (intent.status !== 'FAILED') {
-        await this.store.setStatus(intent, 'FAILED');
+        await this.store.setStatus(intent, 'FAILED', {
+          failureReason: result.reason.slice(0, 200),
+        });
       }
 
       await this.store.releaseOrderSlot(intent.orderId);
@@ -284,6 +286,7 @@ export class OnlinePaymentService {
 
       await this.store.setStatus(intent, 'NEEDS_REVIEW', {
         transactionId: result.transactionId,
+        failureReason: 'AMOUNT_OR_INVOICE_MISMATCH',
       });
 
       return 'review';
@@ -314,6 +317,7 @@ export class OnlinePaymentService {
           );
           await this.store.setStatus(intent, 'NEEDS_REVIEW', {
             transactionId: result.transactionId,
+            failureReason: 'TRANSACTION_ID_REUSED',
           });
           return 'review';
         }
@@ -340,6 +344,9 @@ export class OnlinePaymentService {
 
           await this.store.setStatus(intent, 'NEEDS_REVIEW', {
             transactionId: result.transactionId,
+            failureReason: `RECORDING_FAILED: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
           });
 
           return 'review';
@@ -355,6 +362,42 @@ export class OnlinePaymentService {
     } finally {
       await this.store.releaseFinalizeLock(intent.id);
     }
+  }
+
+  // ------------------------------------------------------------------ reconciliation & review
+
+  // কোনো callback/webhook না এলেও gateway-র কাছে সত্যটা জেনে নেওয়া (শুধু QUERY)।
+  // যেমন: execute সফল হওয়ার পর সার্ভার ক্র্যাশ করে রেকর্ড হয়নি — এটা সেটা ধরে।
+  reconcile(intent: PaymentIntent): Promise<PaymentOutcome> {
+    return this.verifyAndFinalize(intent, 'QUERY');
+  }
+
+  // ২৪ ঘণ্টা পেরোনো, কখনো সম্পূর্ণ না হওয়া চেষ্টা বন্ধ করা
+  async expire(intent: PaymentIntent): Promise<void> {
+    await this.store.setStatus(intent, 'FAILED', { failureReason: 'EXPIRED' });
+    await this.store.releaseOrderSlot(intent.orderId);
+  }
+
+  // টাকা এসেছে কিন্তু রেকর্ড হয়নি / অমিল — ADMIN হাতে মেলাবে। redirectUrl বাদ।
+  async listNeedingReview(organizationId: number) {
+    const intents = await this.store.listByStatus(
+      organizationId,
+      'NEEDS_REVIEW',
+      100,
+    );
+
+    return intents.map((i) => ({
+      id: i.id,
+      orderId: i.orderId,
+      provider: i.provider,
+      amount: i.amount,
+      currency: i.currency,
+      invoiceNumber: i.invoiceNumber,
+      gatewayPaymentId: i.gatewayPaymentId,
+      transactionId: i.transactionId ?? null,
+      reason: i.failureReason ?? null,
+      createdAt: i.createdAt,
+    }));
   }
 
   // ------------------------------------------------------------------ helpers

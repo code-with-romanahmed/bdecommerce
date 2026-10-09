@@ -1,8 +1,8 @@
-import { Inject, Injectable } from '@nestjs/common';
-import type { ConfigType } from '@nestjs/config';
+import { Injectable } from '@nestjs/common';
+import type { Numeric } from '@prisma/orm-postgres/target/codec-types';
 
+import { db } from '../prisma/db.js';
 import { RedisService } from '../redis/redis.service.js';
-import paymentGatewayConfig from './payment-gateway.config.js';
 import type { OnlineProvider } from './payment-gateway.types.js';
 
 export type IntentStatus =
@@ -12,13 +12,14 @@ export type IntentStatus =
   | 'NEEDS_REVIEW'; // টাকা এসেছে কিন্তু সিস্টেমে রেকর্ড করা যায়নি → হাতে মেলাতে হবে
 
 export interface PaymentIntent {
+  // বাইরে প্রকাশযোগ্য id (uuid) — DB-র আসল Int id নয়
   id: string;
   provider: OnlineProvider;
   organizationId: number;
   orderId: number;
   userId: number;
   customerId: number | null;
-  // আমাদের হিসাব-করা পরিমাণ; gateway-র সাড়া এর সাথে মিলতে হবে
+  // আমাদের হিসাব-করা পরিমাণ ("700.00"); gateway-র সাড়া এর সাথে মিলতে হবে
   amount: string;
   currency: 'BDT';
   invoiceNumber: string;
@@ -26,93 +27,160 @@ export interface PaymentIntent {
   redirectUrl: string;
   status: IntentStatus;
   transactionId?: string;
+  failureReason?: string;
   createdAt: string;
 }
 
-const COMPLETED_TTL_SECONDS = 7 * 24 * 60 * 60;
 const ORDER_SLOT_TTL_SECONDS = 15 * 60;
 const FINALIZE_LOCK_TTL_SECONDS = 120;
 
+const money = (value: string | number): Numeric<12, 2> =>
+  Number(value).toFixed(2) as Numeric<12, 2>;
+
+function toIntent(row: any): PaymentIntent {
+  return {
+    id: row.publicId,
+    provider: row.provider as OnlineProvider,
+    organizationId: row.organizationId,
+    orderId: row.orderId,
+    userId: row.userId,
+    customerId: row.customerId ?? null,
+    amount: Number(row.amount).toFixed(2), // "700" ও "700.00" দুটোই এক ফরম্যাটে
+    currency: 'BDT',
+    invoiceNumber: row.invoiceNumber,
+    gatewayPaymentId: row.gatewayPaymentId,
+    redirectUrl: row.redirectUrl,
+    status: row.status as IntentStatus,
+    transactionId: row.transactionId ?? undefined,
+    failureReason: row.failureReason ?? undefined,
+    createdAt: String(row.createdAt),
+  };
+}
+
 /**
- * Redis-ভিত্তিক intent store।
+ * PaymentIntent-এর স্থায়ী রেকর্ড Postgres-এ (Redis ফ্লাশ হলেও হারায় না)।
+ * Redis থাকে শুধু অস্থায়ী সমন্বয়ে: finalize lock, order-slot, reconcile lock।
  *
- * ⚠ প্রোডাকশন-সীমা: Redis মেমরি-ডেটাবেস; flush/ক্র্যাশে pending intent হারাতে
- * পারে। টাকার ক্ষেত্রে আদর্শ হলো একটা PaymentIntent টেবিল (Postgres)। এই
- * ক্লাসের ইন্টারফেস ওভাবেই রাখা হয়েছে যাতে পরে শুধু ভেতরটা বদলালেই হয়।
+ * স্ট্যাটাস বদল compare-and-set: `where({ publicId, status: <যা পড়েছি> })`।
+ * তাই দুটো প্রক্রিয়া একসাথে বদলাতে চাইলে একটাই জেতে, আর COMPLETED
+ * কখনো পুরনো (stale) তথ্যের ভিত্তিতে উল্টে যেতে পারে না।
  */
 @Injectable()
 export class PaymentIntentStore {
-  constructor(
-    private readonly redisService: RedisService,
-    @Inject(paymentGatewayConfig.KEY)
-    private readonly config: ConfigType<typeof paymentGatewayConfig>,
-  ) {}
+  constructor(private readonly redisService: RedisService) {}
 
   private get redis() {
     return this.redisService.getClient();
   }
 
-  private intentKey = (id: string) => `pay:intent:${id}`;
-  private gatewayKey = (provider: OnlineProvider, gatewayPaymentId: string) =>
-    `pay:gw:${provider}:${gatewayPaymentId}`;
   private slotKey = (orderId: number) => `pay:order-active:${orderId}`;
   private lockKey = (id: string) => `pay:finalize:${id}`;
 
-  async create(intent: PaymentIntent): Promise<void> {
-    const ttl = this.config.intentTtlSeconds;
+  // ------------------------------------------------------------------ DB
 
-    await this.redis
-      .multi()
-      .set(this.intentKey(intent.id), JSON.stringify(intent), 'EX', ttl)
-      .set(
-        this.gatewayKey(intent.provider, intent.gatewayPaymentId),
-        intent.id,
-        'EX',
-        ttl,
-      )
-      .exec();
+  async create(intent: PaymentIntent): Promise<void> {
+    await db.orm.public.PaymentIntent.create({
+      publicId: intent.id,
+      organizationId: intent.organizationId,
+      orderId: intent.orderId,
+      userId: intent.userId,
+      customerId: intent.customerId ?? undefined,
+      provider: intent.provider,
+      amount: money(intent.amount),
+      currency: intent.currency,
+      invoiceNumber: intent.invoiceNumber,
+      gatewayPaymentId: intent.gatewayPaymentId,
+      redirectUrl: intent.redirectUrl,
+      status: intent.status,
+    });
   }
 
   async get(id: string): Promise<PaymentIntent | null> {
-    const raw = await this.redis.get(this.intentKey(id));
+    const row = await db.orm.public.PaymentIntent
+      .where({ publicId: id })
+      .first();
 
-    if (!raw) return null;
-
-    try {
-      return JSON.parse(raw) as PaymentIntent;
-    } catch {
-      return null;
-    }
+    return row ? toIntent(row) : null;
   }
 
   async findByGatewayPaymentId(
     provider: OnlineProvider,
     gatewayPaymentId: string,
   ): Promise<PaymentIntent | null> {
-    const id = await this.redis.get(this.gatewayKey(provider, gatewayPaymentId));
+    const row = await db.orm.public.PaymentIntent
+      .where({ provider, gatewayPaymentId })
+      .first();
 
-    return id ? this.get(id) : null;
+    return row ? toIntent(row) : null;
   }
 
+  /**
+   * অবস্থা বদলায় শুধু যদি DB-তে এখনো `intent.status`-ই থাকে (compare-and-set)।
+   * অন্য কেউ আগে বদলে ফেললে কিছু লেখা হয় না এবং বর্তমান রেকর্ড ফেরত আসে।
+   */
   async setStatus(
     intent: PaymentIntent,
     status: IntentStatus,
-    extra?: { transactionId?: string },
+    extra?: { transactionId?: string; failureReason?: string },
   ): Promise<PaymentIntent> {
-    const updated: PaymentIntent = { ...intent, status, ...extra };
-    const ttl =
-      status === 'COMPLETED' || status === 'NEEDS_REVIEW'
-        ? COMPLETED_TTL_SECONDS
-        : this.config.intentTtlSeconds;
+    const data: Record<string, unknown> = { status };
 
-    await this.redis
-      .multi()
-      .set(this.intentKey(intent.id), JSON.stringify(updated), 'EX', ttl)
-      .expire(this.gatewayKey(intent.provider, intent.gatewayPaymentId), ttl)
-      .exec();
+    if (extra?.transactionId !== undefined) {
+      data.transactionId = extra.transactionId;
+    }
 
-    return updated;
+    if (extra?.failureReason !== undefined) {
+      data.failureReason = extra.failureReason.slice(0, 500);
+    }
+
+    const updated = await db.orm.public.PaymentIntent
+      .where({ publicId: intent.id, status: intent.status })
+      .update(data as any);
+
+    if (!updated) {
+      return (await this.get(intent.id)) ?? intent;
+    }
+
+    return { ...intent, status, ...extra };
   }
+
+  async listByStatus(
+    organizationId: number,
+    status: IntentStatus,
+    limit: number,
+  ): Promise<PaymentIntent[]> {
+    const rows = await db.orm.public.PaymentIntent
+      .where({ organizationId, status })
+      .orderBy((p) => p.id.asc())
+      .limit(limit)
+      .all();
+
+    return rows.map(toIntent);
+  }
+
+  // INITIATED থাকা পুরনো চেষ্টা (সবচেয়ে পুরনো আগে)। সংখ্যা সীমিত — শেষ হওয়া
+  // সবকিছু INITIATED থেকে বেরিয়ে যায়, তাই এই সেট বাড়তে থাকে না।
+  async listStaleInitiated(
+    minAgeSeconds: number,
+    limit: number,
+  ): Promise<{ intent: PaymentIntent; ageSeconds: number }[]> {
+    const rows = await db.orm.public.PaymentIntent
+      .where({ status: 'INITIATED' })
+      .orderBy((p) => p.id.asc())
+      .limit(limit)
+      .all();
+
+    const now = Date.now();
+
+    return rows
+      .map((row: any) => ({
+        intent: toIntent(row),
+        ageSeconds: (now - new Date(String(row.createdAt)).getTime()) / 1000,
+      }))
+      .filter((entry) => entry.ageSeconds >= minAgeSeconds);
+  }
+
+  // ------------------------------------------------------------------ Redis (অস্থায়ী সমন্বয়)
 
   // প্রতি order-এ একসময়ে একটাই সক্রিয় চেষ্টা। দখল পেলে null; না পেলে
   // বর্তমান দখলদার intent-এর id ফেরত।
@@ -151,5 +219,18 @@ export class PaymentIntentStore {
 
   async releaseFinalizeLock(id: string): Promise<void> {
     await this.redis.del(this.lockKey(id));
+  }
+
+  // একাধিক সার্ভার চললে শুধু একটাই reconciliation চালাবে
+  async acquireReconcileLock(ttlSeconds: number): Promise<boolean> {
+    const result = await this.redis.set(
+      'pay:reconcile:lock',
+      '1',
+      'EX',
+      ttlSeconds,
+      'NX',
+    );
+
+    return result === 'OK';
   }
 }
