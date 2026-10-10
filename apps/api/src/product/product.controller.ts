@@ -5,11 +5,13 @@ import {
   Param,
   ParseIntPipe,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { OrganizationId } from '../auth/organization-context.decorator.js';
+import { PaginationQueryDto } from '../common/Pagination query.dto.js';
 import { RequirePermission } from '../rbac/permission.decorator.js';
 import { PermissionGuard } from '../rbac/permission.guard.js';
 import { CreateCategoryDto } from './category.dto.js';
@@ -18,7 +20,7 @@ import { CreateProductDto } from './product.dto.js';
 import { ProductService } from './product.service.js';
 
 @Controller('products')
-@UseGuards(JwtAuthGuard,PermissionGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard)
 export class ProductController {
   constructor(
     private readonly productService: ProductService,
@@ -36,13 +38,16 @@ export class ProductController {
     );
   }
 
+  // GET /products/categories?page=1&limit=20&fields=id,name,slug
   @Get('categories')
   @RequirePermission('product.read')
   async listCategories(
     @OrganizationId() organizationId: number,
+    @Query() pagination: PaginationQueryDto,
   ) {
     return this.productService.listCategories(
       organizationId,
+      pagination,
     );
   }
 
@@ -58,13 +63,16 @@ export class ProductController {
     );
   }
 
+  // GET /products?page=1&limit=20&fields=id,name,slug
   @Get()
   @RequirePermission('product.read')
   async listProducts(
     @OrganizationId() organizationId: number,
+    @Query() pagination: PaginationQueryDto,
   ) {
     return this.productService.listProducts(
       organizationId,
+      pagination,
     );
   }
 
@@ -86,6 +94,7 @@ export class ProductController {
     );
   }
 
+  // GET /products/:productId/variants?page=1&limit=20&fields=id,sku,price
   @Get(':productId/variants')
   @RequirePermission('product.read')
   async listVariants(
@@ -93,10 +102,13 @@ export class ProductController {
 
     @Param('productId', ParseIntPipe)
     productId: number,
+
+    @Query() pagination: PaginationQueryDto,
   ) {
     return this.productService.listVariants(
       organizationId,
       productId,
+      pagination,
     );
   }
 }

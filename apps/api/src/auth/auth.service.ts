@@ -1,13 +1,16 @@
 import {
+  Inject,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import type { ConfigType } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 
 import { db } from '../prisma/db.js';
 import {
   AuthSessionService,
 } from './auth-session.service.js';
+import authConfig from './auth.config.js';
 import type {
   AuthUser,
   JwtPayload,
@@ -18,6 +21,8 @@ export class AuthService {
   constructor(
     private readonly jwtService: JwtService,
     private readonly authSessionService: AuthSessionService,
+    @Inject(authConfig.KEY)
+    private readonly config: ConfigType<typeof authConfig>,
   ) {}
 
 async findUserByPhone(
@@ -43,11 +48,13 @@ async findUserByPhone(
 
   async issueAccessToken(
     user: AuthUser,
+    sessionId: string,
   ): Promise<string> {
     const payload: JwtPayload = {
       sub: user.id,
       organizationId: user.organizationId,
       phone: user.phone,
+      sid: sessionId,
     };
 
     return this.jwtService.signAsync(payload);
@@ -74,13 +81,13 @@ async findUserByPhone(
     );
 
     const accessToken =
-      await this.issueAccessToken(user);
+      await this.issueAccessToken(user, sessionId);
 
     return {
       accessToken,
       refreshToken,
       tokenType: 'Bearer',
-      expiresIn: 14400,
+      expiresIn: this.config.accessTokenTtlSeconds,
       sessionId,
     };
   }
@@ -102,9 +109,15 @@ async findUserByPhone(
 
     const sessionId = parts[0];
 
+    /*
+     * Refresh-token rotation (atomic):
+     * validate + পুরনো সেশন মুছে ফেলা একসাথে হয়। একই token দিয়ে একসাথে
+     * দুটো রিকোয়েস্ট এলে একটাই সফল হয়; অন্যটা 401 পায়।
+     * (ইউজার না থাকলেও সেশন আগেই মুছে গেছে।)
+     */
     const session =
       await this.authSessionService
-        .validateSession(
+        .consumeSession(
           sessionId,
           refreshToken,
         );
@@ -119,21 +132,10 @@ async findUserByPhone(
       await this.getUserById(session.userId);
 
     if (!user) {
-      await this.authSessionService
-        .revokeSession(sessionId);
-
       throw new UnauthorizedException(
         'User not found',
       );
     }
-
-    /*
-     * Refresh-token rotation:
-     * The old session is destroyed before
-     * a new refresh token is issued.
-     */
-    await this.authSessionService
-      .revokeSession(sessionId);
 
     return this.createSession(
       user,
@@ -161,8 +163,21 @@ async findUserByPhone(
   async verifyAccessToken(
     token: string,
   ): Promise<JwtPayload> {
-    return this.jwtService
-      .verifyAsync<JwtPayload>(token);
+    const payload =
+      await this.jwtService
+        .verifyAsync<JwtPayload>(token);
+
+    // sid ছাড়া (পুরনো ফরম্যাটের বা অন্য ধরনের) টোকেন গ্রহণযোগ্য নয়
+    if (typeof payload.sid !== 'string' || payload.sid.length === 0) {
+      throw new UnauthorizedException('Invalid access token');
+    }
+
+    // সেশন মুছে গেছে (logout / refresh / revoke) → টোকেন সঙ্গে সঙ্গে অচল
+    if (!(await this.authSessionService.sessionExists(payload.sid))) {
+      throw new UnauthorizedException('Session expired or revoked');
+    }
+
+    return payload;
   }
 
   async getUserById(

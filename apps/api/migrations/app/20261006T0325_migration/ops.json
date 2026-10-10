@@ -1,0 +1,170 @@
+[
+  {
+    "id": "dropIndex.payment.payment_transactionId_idx_d3180832",
+    "label": "Drop index \"payment_transactionId_idx_d3180832\"",
+    "operationClass": "destructive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "payment_transactionId_idx_d3180832",
+        "table": "payment"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"payment_transactionId_idx_d3180832\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"payment_transactionId_idx_d3180832\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "drop index \"payment_transactionId_idx_d3180832\"",
+        "sql": "DROP INDEX \"public\".\"payment_transactionId_idx_d3180832\"",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"payment_transactionId_idx_d3180832\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"payment_transactionId_idx_d3180832\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.payment.organizationId",
+    "label": "Add column \"organizationId\" to \"payment\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "organizationId",
+        "table": "payment"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"organizationId\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "payment",
+          "organizationId"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"organizationId\"",
+        "sql": "ALTER TABLE \"public\".\"payment\" ADD COLUMN \"organizationId\" int4"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"organizationId\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "payment",
+          "organizationId"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "alterNullability.setNotNull.payment.organizationId",
+    "label": "Set NOT NULL on \"payment\".\"organizationId\"",
+    "operationClass": "destructive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "organizationId",
+        "table": "payment"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"organizationId\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "payment",
+          "organizationId"
+        ]
+      },
+      {
+        "description": "ensure no NULL values in \"organizationId\"",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"public\".\"payment\" WHERE \"organizationId\" IS NULL) AS \"result\"",
+        "params": []
+      }
+    ],
+    "execute": [
+      {
+        "description": "set NOT NULL on \"organizationId\"",
+        "sql": "ALTER TABLE \"public\".\"payment\" ALTER COLUMN \"organizationId\" SET NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"organizationId\" is NOT NULL",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3 AND \"is_nullable\" = $4)) AS \"result\"",
+        "params": [
+          "public",
+          "payment",
+          "organizationId",
+          "NO"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.payment.payment_organizationId_transactionId_idx_a5842b20",
+    "label": "Create index \"payment_organizationId_transactionId_idx_a5842b20\" on \"payment\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "payment_organizationId_transactionId_idx_a5842b20",
+        "table": "payment"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"payment_organizationId_transactionId_idx_a5842b20\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"payment_organizationId_transactionId_idx_a5842b20\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"payment_organizationId_transactionId_idx_a5842b20\"",
+        "sql": "CREATE INDEX \"payment_organizationId_transactionId_idx_a5842b20\" ON \"public\".\"payment\" (\"organizationId\", \"transactionId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"payment_organizationId_transactionId_idx_a5842b20\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"payment_organizationId_transactionId_idx_a5842b20\""
+        ]
+      }
+    ]
+  }
+]

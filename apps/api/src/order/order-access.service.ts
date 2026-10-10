@@ -6,6 +6,9 @@ import { db } from '../prisma/db.js';
 import type { AuthUser } from '../auth/auth.types.js';
 import { RbacService } from '../rbac/rbac.service.js';
 
+// কাউন্টারে CASHIER সর্বোচ্চ কত শতাংশ ছাড় দিতে পারবে
+const CASHIER_MAX_DISCOUNT_PERCENT = 10;
+
 @Injectable()
 export class OrderAccessService {
   constructor(private readonly rbacService: RbacService) {}
@@ -112,5 +115,62 @@ export class OrderAccessService {
     }
 
     return [];
+  }
+
+  /**
+   * ইউজার CUSTOMER role-এ থাকলে তার নিজের Customer id, নইলে null।
+   * Order তৈরিতে customerId এখান থেকেই বসে — ক্লায়েন্টের কথায় নয়।
+   */
+  async getOwnCustomerId(user: AuthUser): Promise<number | null> {
+    const { id: userId, organizationId } = user;
+
+    if (!(await this.rbacService.hasRole(userId, organizationId, 'CUSTOMER'))) {
+      return null;
+    }
+
+    const own = await db.orm.public.Customer
+      .where({ organizationId, userId })
+      .first();
+
+    return own?.id ?? null;
+  }
+
+  /**
+   * Discount নীতি: ADMIN/MANAGER সীমাহীন; CASHIER শুধু শতাংশ-ছাড়, সর্বোচ্চ
+   * CASHIER_MAX_DISCOUNT_PERCENT; বাকি সবাই (CUSTOMER সহ) কোনো ছাড় দিতে পারে না।
+   */
+  async getDiscountPolicy(user: AuthUser): Promise<{
+    allowed: boolean;
+    maxPercent: number | null;
+    flatAllowed: boolean;
+  }> {
+    const { id: userId, organizationId } = user;
+
+    if (
+      (await this.rbacService.hasRole(userId, organizationId, 'SUPER_ADMIN')) ||
+      (await this.rbacService.hasRole(userId, organizationId, 'ADMIN')) ||
+      (await this.rbacService.hasRole(userId, organizationId, 'MANAGER'))
+    ) {
+      return { allowed: true, maxPercent: null, flatAllowed: true };
+    }
+
+    if (await this.rbacService.hasRole(userId, organizationId, 'CASHIER')) {
+      return {
+        allowed: true,
+        maxPercent: CASHIER_MAX_DISCOUNT_PERCENT,
+        flatAllowed: false,
+      };
+    }
+
+    return { allowed: false, maxPercent: 0, flatAllowed: false };
+  }
+
+  /** gateway-যাচাই ছাড়া অনলাইন-মাধ্যমের পেমেন্ট হাতে রেকর্ড করার অনুমতি */
+  async canOverrideOnlinePayments(user: AuthUser): Promise<boolean> {
+    return this.rbacService.hasPermission(
+      user.id,
+      user.organizationId,
+      'payment.override',
+    );
   }
 }

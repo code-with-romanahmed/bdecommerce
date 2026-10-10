@@ -15,6 +15,8 @@ import { NotificationsModule } from './notifications/notifications.module.js';
 import { OrderModule } from './order/order.module.js';
 import { OrganizationModule } from './organization/organization.module.js';
 import { OtpModule } from './otp/otp.module.js';
+import { PaymentGatewayModule } from './payment-gateway/payment-gateway.module.js';
+
 import { ProductModule } from './product/product.module.js';
 import { RedisModule } from './redis/redis.module.js';
 import { RiskModule } from './risk/risk.module.js';
@@ -37,9 +39,11 @@ import { RiskModule } from './risk/risk.module.js';
     CartModule,
      CourierCheckModule, 
     OrderModule,
+    PaymentGatewayModule,
       LabelModule,
     CashierAssignmentModule,
-      AiAgentModule
+      AiAgentModule,
+     
   ],
   controllers: [AppController],
   providers: [AppService],

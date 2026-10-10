@@ -1,0 +1,207 @@
+[
+  {
+    "id": "table.oAuthIdentity",
+    "label": "Create table \"oAuthIdentity\"",
+    "summary": "Creates table \"oAuthIdentity\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "oAuthIdentity"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"oAuthIdentity\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"oAuthIdentity\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"oAuthIdentity\"",
+        "sql": "CREATE TABLE \"public\".\"oAuthIdentity\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"email\" text,\n  \"id\" SERIAL NOT NULL,\n  \"provider\" text NOT NULL,\n  \"providerUserId\" text NOT NULL,\n  \"userId\" int4 NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"oAuthIdentity\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"oAuthIdentity\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "alterNullability.dropNotNull.user.phone",
+    "label": "Drop NOT NULL on \"user\".\"phone\"",
+    "operationClass": "widening",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "phone",
+        "table": "user"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"phone\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "user",
+          "phone"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "drop NOT NULL on \"phone\"",
+        "sql": "ALTER TABLE \"public\".\"user\" ALTER COLUMN \"phone\" DROP NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"phone\" is nullable",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3 AND \"is_nullable\" = $4)) AS \"result\"",
+        "params": [
+          "public",
+          "user",
+          "phone",
+          "YES"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.oAuthIdentity.oAuthIdentity_provider_providerUserId_key",
+    "label": "Add unique constraint on \"oAuthIdentity\" (provider, providerUserId)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "oAuthIdentity_provider_providerUserId_key",
+        "table": "oAuthIdentity"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"oAuthIdentity_provider_providerUserId_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "oAuthIdentity_provider_providerUserId_key",
+          "public",
+          "\"public\".\"oAuthIdentity\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"oAuthIdentity_provider_providerUserId_key\"",
+        "sql": "ALTER TABLE \"public\".\"oAuthIdentity\" ADD CONSTRAINT \"oAuthIdentity_provider_providerUserId_key\" UNIQUE (\"provider\", \"providerUserId\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"oAuthIdentity_provider_providerUserId_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "oAuthIdentity_provider_providerUserId_key",
+          "public",
+          "\"public\".\"oAuthIdentity\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.oAuthIdentity.oAuthIdentity_userId_idx_a489d58a",
+    "label": "Create index \"oAuthIdentity_userId_idx_a489d58a\" on \"oAuthIdentity\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "oAuthIdentity_userId_idx_a489d58a",
+        "table": "oAuthIdentity"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"oAuthIdentity_userId_idx_a489d58a\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"oAuthIdentity_userId_idx_a489d58a\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"oAuthIdentity_userId_idx_a489d58a\"",
+        "sql": "CREATE INDEX \"oAuthIdentity_userId_idx_a489d58a\" ON \"public\".\"oAuthIdentity\" (\"userId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"oAuthIdentity_userId_idx_a489d58a\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"oAuthIdentity_userId_idx_a489d58a\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.oAuthIdentity.oAuthIdentity_userId_fkey",
+    "label": "Add foreign key \"oAuthIdentity_userId_fkey\" on \"oAuthIdentity\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "oAuthIdentity_userId_fkey",
+        "table": "oAuthIdentity"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"oAuthIdentity_userId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "oAuthIdentity_userId_fkey",
+          "public",
+          "\"public\".\"oAuthIdentity\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"oAuthIdentity_userId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"oAuthIdentity\"\nADD CONSTRAINT \"oAuthIdentity_userId_fkey\"\nFOREIGN KEY (\"userId\")\nREFERENCES \"public\".\"user\" (\"id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"oAuthIdentity_userId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "oAuthIdentity_userId_fkey",
+          "public",
+          "\"public\".\"oAuthIdentity\""
+        ]
+      }
+    ]
+  }
+]

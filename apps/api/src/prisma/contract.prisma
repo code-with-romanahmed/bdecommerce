@@ -154,6 +154,7 @@ model OrderItem {
 
 model Payment {
   id                Int               @id @default(autoincrement())
+  organizationId    Int
   orderId           Int
   amount            Numeric(12, 2)
   currency          String            @default("BDT")
@@ -165,7 +166,7 @@ model Payment {
   order             Order             @relation(fields: [orderId], references: [id])
 
   @@index([orderId])
-  @@index([transactionId])
+  @@index([organizationId, transactionId])
 }
 
 model Organization {
@@ -207,7 +208,7 @@ model Branch {
 model User {
   id                 Int                 @id @default(autoincrement())
   organizationId     Int
-  phone              String?              @unique
+  phone              String?             @unique
   email              String?             @unique
   name               String?
   status             RecordStatus        @default(ACTIVE)
@@ -217,9 +218,23 @@ model User {
   userRoles          UserRole[]
   customer           Customer?
   cashierAssignments CashierAssignment[] @relation("CashierAssignments")
-  oauthIdentities OAuthIdentity[]
+  oauthIdentities     OAuthIdentity[]
+
   @@index([organizationId])
-  
+}
+
+model OAuthIdentity {
+  id             Int               @id @default(autoincrement())
+  userId         Int
+  provider       String
+  providerUserId String
+  email          String?
+  createdAt      TimestamptzString @default(now())
+
+  user           User              @relation(fields: [userId], references: [id])
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
 }
 
 model Role {
@@ -496,16 +511,33 @@ model CashierAssignment {
   @@index([customerId, isActive])
 }
 
-model OAuthIdentity {
-  id             Int      @id @default(autoincrement())
-  userId         Int
-  provider       String   // 'GOOGLE' | 'FACEBOOK'
-  providerUserId String
-  email          String?
-  createdAt      TimestamptzString @default(now())
+enum PaymentIntentStatus {
+  INITIATED
+  COMPLETED
+  FAILED
+  NEEDS_REVIEW
+}
 
-  user           User     @relation(fields: [userId], references: [id])
+model PaymentIntent {
+  id               Int                 @id @default(autoincrement())
+  publicId         String              @unique
+  organizationId   Int
+  orderId          Int
+  userId           Int
+  customerId       Int?
+  provider         PaymentMethod
+  amount           Numeric(12, 2)
+  currency         String              @default("BDT")
+  invoiceNumber    String              @unique
+  gatewayPaymentId String
+  redirectUrl      String
+  status           PaymentIntentStatus @default(INITIATED)
+  transactionId    String?
+  failureReason    String?
+  createdAt        TimestamptzString   @default(now())
 
-  @@unique([provider, providerUserId])
-  @@index([userId])
+  @@unique([provider, gatewayPaymentId])
+  @@index([orderId])
+  @@index([organizationId, status])
+  @@index([status])
 }

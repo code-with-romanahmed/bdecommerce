@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 
 import { RedisService } from '../redis/redis.service.js';
 
@@ -81,9 +81,13 @@ export class AuthSessionService {
       return null;
     }
 
+    // constant-time তুলনা (দুটোই sha256 hex, তাই সমান দৈর্ঘ্য)
+    const stored = Buffer.from(data.tokenHash, 'hex');
+    const provided = Buffer.from(this.hashToken(refreshToken), 'hex');
+
     if (
-      data.tokenHash !==
-      this.hashToken(refreshToken)
+      stored.length !== provided.length ||
+      !timingSafeEqual(stored, provided)
     ) {
       return null;
     }
@@ -94,6 +98,27 @@ export class AuthSessionService {
       deviceId: data.deviceId ?? 'unknown',
       deviceName: data.deviceName ?? 'Unknown Device',
     };
+  }
+
+  /**
+   * validate + মুছে ফেলা, একসাথে। একই refresh token দিয়ে দুটো রিকোয়েস্ট
+   * একসাথে এলে redis.del-এর ফেরত মান (১ বা ০) ঠিক করে কে জিতল — তাই
+   * একটা refresh token থেকে দুটো নতুন সেশন তৈরি হওয়া অসম্ভব।
+   */
+  async consumeSession(
+    sessionId: string,
+    refreshToken: string,
+  ): Promise<AuthSession | null> {
+    const session = await this.validateSession(sessionId, refreshToken);
+
+    if (!session) {
+      return null;
+    }
+
+    const redis = this.redisService.getClient();
+    const deleted = await redis.del(this.sessionKey(sessionId));
+
+    return deleted === 1 ? session : null;
   }
 
   async revokeSession(

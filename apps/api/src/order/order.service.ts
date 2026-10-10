@@ -1,11 +1,12 @@
-
 import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import type { Numeric } from '@prisma/orm-postgres/target/codec-types';
+import { InvoiceService } from '../invoice/invoice.service.js';
 import { db } from '../prisma/db.js';
 import { RiskService } from '../risk/risk.service.js';
 import {
@@ -50,7 +51,12 @@ function money(value: number): Numeric<12, 2> {
 
 @Injectable()
 export class OrderService {
-  constructor(private readonly riskService: RiskService) {}
+  private readonly logger = new Logger(OrderService.name);
+
+  constructor(
+    private readonly riskService: RiskService,
+    private readonly invoiceService: InvoiceService,
+  ) {}
 
   private async generateOrderNumber(): Promise<string> {
     const now = new Date();
@@ -61,21 +67,22 @@ export class OrderService {
 
     const prefix = `ORD-${datePart}-`;
 
-    const allOrders = await db.orm.public.Order.all();
+    // আগে এখানে পুরো Order টেবিল মেমরিতে আনা হতো। এখন শুধু আজকের সর্বশেষ
+    // order-টা (১টা সারি) এনে তার নম্বর থেকে পরের নম্বর বানানো হয়।
+    // দুটো order একসাথে একই নম্বর বানালে `orderNumber @unique` ডুপ্লিকেট
+    // আটকায়, আর createOrder-এর retry লুপ নতুন করে চেষ্টা করে।
+    const latest = await db.orm.public.Order
+      .where((o) => o.orderNumber.like(`${prefix}%`))
+      .orderBy((o) => o.id.desc())
+      .first();
 
-    const todaysCount = allOrders.filter((o) =>
-      o.orderNumber.startsWith(prefix),
-    ).length;
+    const lastSeq = latest
+      ? Number.parseInt(latest.orderNumber.slice(prefix.length), 10)
+      : 0;
 
-    let seq = todaysCount + 1;
-    let orderNumber = `${prefix}${String(seq).padStart(4, '0')}`;
+    const seq = (Number.isFinite(lastSeq) ? lastSeq : 0) + 1;
 
-    while (allOrders.some((o) => o.orderNumber === orderNumber)) {
-      seq += 1;
-      orderNumber = `${prefix}${String(seq).padStart(4, '0')}`;
-    }
-
-    return orderNumber;
+    return `${prefix}${String(seq).padStart(4, '0')}`;
   }
 
   async createOrder(
@@ -467,6 +474,14 @@ export class OrderService {
         ) {
           throw error;
         }
+
+        // একসাথে অনেক order এলে সবাই একই মুহূর্তে আবার চেষ্টা করলে বারবার
+        // সংঘর্ষ হয়; তাই নম্বর-সংঘর্ষে সামান্য এলোমেলো বিরতি দিই
+        if (isOrderNumberClash) {
+          await new Promise((resolve) =>
+            setTimeout(resolve, 15 + Math.random() * 45 * attempt),
+          );
+        }
       }
     }
 
@@ -476,122 +491,268 @@ export class OrderService {
       );
     }
 
+    // Order সফলভাবে তৈরি হওয়ার পর স্বয়ংক্রিয়ভাবে Invoice generate করা
+    // হচ্ছে (idempotent — InvoiceService নিজেই duplicate আটকায়)। এটা
+    // try/catch-এ wrapped রাখা হয়েছে ইচ্ছাকৃতভাবে — invoice generation
+    // কোনো কারণে fail করলেও সেটা order-creation-কে fail করাবে না
+    // (order already DB-তে commit হয়ে গেছে), শুধু log হবে। পরে staff
+    // POST /invoices/generate/:orderId দিয়ে manually আবার try করতে
+    // পারবে (route-টা আগে থেকেই আছে)।
+    try {
+      await this.invoiceService.generateForOrder(
+        organizationId,
+        orderId,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Auto invoice generation failed for order ${orderId}`,
+        error,
+      );
+    }
+
     return this.getOrder(
       organizationId,
       orderId,
     );
   }
 
+  // Race-condition fix: আগে এই মেথডটা read (remaining balance) আর
+  // write (Payment create + Order update) আলাদা, lock-ছাড়া step
+  // হিসেবে করতো — দুইটা concurrent request একই remaining balance
+  // দেখে দুইটাই pass করে overpayment করতে পারতো।
+  //
+  // এখন পুরো মেথডটা db.transaction()-এর ভেতরে, আর Payment insert
+  // করার পরে একই transaction-এর ভেতরেই আবার পুরো ledger পড়ে total
+  // paid হিসাব করা হচ্ছে (post-insert re-verify)। যদি সেই মুহূর্তে
+  // দেখা যায় মোট paid amount grandTotal ছাড়িয়ে গেছে (মানে অন্য একটা
+  // concurrent payment এর মধ্যেই commit হয়ে গেছে), পুরো transaction
+  // ConflictException দিয়ে rollback হয় — Payment row-টাও বাতিল হয়ে
+  // যায়, কোনো overpayment persist হয় না। Order.paymentStatus update-ও
+  // আগের মতোই conditional (old paymentStatus match করলেই update হবে),
+  // একই pattern যা createOrder/cancelOrder-এ আছে।
+  //
+  // বাইরে একটা retry loop আছে (createOrder-এর মতো) — কোনো attempt
+  // ConflictException-এ rollback হলে fresh state দিয়ে আবার চেষ্টা হয়,
+  // BadRequestException/NotFoundException হলে সাথে সাথে throw হয়ে যায়
+  // (retry করার কিছু নেই, legit validation failure)।
   async createPayment(
     organizationId: number,
     orderId: number,
     dto: CreatePaymentDto,
   ) {
-    const order =
-      await db.orm.public.Order
-        .where({
-          id: orderId,
-          organizationId,
-        })
-        .first();
-
-    if (!order) {
-      throw new NotFoundException(
-        'Order not found',
-      );
-    }
-
-    if (order.status === 'CANCELLED') {
-      throw new BadRequestException(
-        'Cannot create payment for a cancelled order',
-      );
-    }
-
     if (dto.amount <= 0) {
       throw new BadRequestException(
         'Payment amount must be greater than zero',
       );
     }
 
-    // Prevent duplicate transaction ID
-    if (dto.transactionId) {
-      const existingPayment =
-        await db.orm.public.Payment
-          .where({
-            transactionId:
-              dto.transactionId,
-          })
-          .first();
+    for (let attempt = 1; attempt <= 5; attempt++) {
+      try {
+        return await db.transaction(async (tx) => {
+          const order =
+            await tx.orm.public.Order
+              .where({
+                id: orderId,
+                organizationId,
+              })
+              .first();
 
-      if (existingPayment) {
-        throw new ConflictException(
-          'A payment with this transaction ID already exists',
-        );
+          if (!order) {
+            throw new NotFoundException(
+              'Order not found',
+            );
+          }
+
+          if (order.status === 'CANCELLED') {
+            throw new BadRequestException(
+              'Cannot create payment for a cancelled order',
+            );
+          }
+
+          // Prevent duplicate transaction ID — কিন্তু এই organization-এর
+          // ভেতরেই শুধু। আগে এটা global ছিল (শুধু transactionId দিয়ে
+          // খুঁজতো, organizationId ছাড়া), তাই দুই আলাদা org একই
+          // transactionId স্ট্রিং ব্যবহার করলে একটার legit payment
+          // আরেকটার পুরনো entry-এর কারণে ভুলভাবে block হয়ে যেত। এখন
+          // Payment model-এ নিজস্ব organizationId কলাম আছে, তাই সরাসরি
+          // সেটা দিয়েই query করা হচ্ছে (আগের মতো Order-এর মাধ্যমে
+          // join করে ঘুরপথে বের করার দরকার নেই)।
+          if (dto.transactionId) {
+            const existingPayment =
+              await tx.orm.public.Payment
+                .where({
+                  organizationId,
+                  transactionId:
+                    dto.transactionId,
+                })
+                .first();
+
+            if (existingPayment) {
+              throw new ConflictException(
+                'A payment with this transaction ID already exists',
+              );
+            }
+          }
+
+          const existingPayments =
+            await tx.orm.public.Payment
+              .where({
+                orderId: order.id,
+              })
+              .all();
+
+          const paidAmount =
+            existingPayments
+              .filter(
+                (payment) =>
+                  payment.status === 'PAID' ||
+                  payment.status ===
+                    'AUTHORIZED',
+              )
+              .reduce(
+                (total, payment) =>
+                  total +
+                  Number(payment.amount),
+                0,
+              );
+
+          const orderTotal =
+            Number(order.grandTotal);
+
+          const remainingAmount =
+            orderTotal - paidAmount;
+
+          if (dto.amount > remainingAmount) {
+            throw new BadRequestException(
+              `Payment amount exceeds remaining balance of ${remainingAmount.toFixed(2)}`,
+            );
+          }
+
+          const payment =
+            await tx.orm.public.Payment.create({
+              organizationId,
+              orderId: order.id,
+              amount: money(dto.amount),
+              currency: order.currency,
+              status: 'PAID',
+              method: dto.method,
+              transactionId:
+                dto.transactionId ??
+                undefined,
+            });
+
+          // --- Post-insert re-verify (এই transaction-এর ভেতরেই) ---
+          // এই পয়েন্টে অন্য কোনো concurrent payment ইতিমধ্যে commit
+          // হয়ে গেলে, এই SELECT-এ সেটাও দেখা যাবে (read-committed হলেও
+          // committed row সবসময় visible)। তাই এখানে ধরা পড়লে পুরো
+          // transaction বাতিল হয়ে retry হবে।
+          const allPayments =
+            await tx.orm.public.Payment
+              .where({
+                orderId: order.id,
+              })
+              .all();
+
+          const totalPaidNow =
+            allPayments
+              .filter(
+                (payment) =>
+                  payment.status === 'PAID' ||
+                  payment.status ===
+                    'AUTHORIZED',
+              )
+              .reduce(
+                (total, payment) =>
+                  total +
+                  Number(payment.amount),
+                0,
+              );
+
+          if (totalPaidNow > orderTotal + 0.01) {
+            throw new ConflictException(
+              'Concurrent payment detected, please retry',
+            );
+          }
+
+          const updated =
+            await tx.orm.public.Order
+              .where({
+                id: order.id,
+                organizationId,
+                paymentStatus:
+                  order.paymentStatus,
+              })
+              .update({
+                paymentStatus:
+                  totalPaidNow >= orderTotal
+                    ? 'PAID'
+                    : 'PENDING',
+              });
+
+          if (!updated) {
+            throw new ConflictException(
+              'Order payment status changed concurrently, please retry',
+            );
+          }
+
+          return payment;
+        });
+      } catch (error) {
+        if (
+          error instanceof
+            BadRequestException ||
+          error instanceof
+            NotFoundException
+        ) {
+          throw error;
+        }
+
+        const isConflict =
+          error instanceof
+          ConflictException;
+
+        if (
+          !isConflict ||
+          attempt === 5
+        ) {
+          throw error;
+        }
+        // ConflictException + attempt বাকি আছে → লুপ চালিয়ে retry
       }
     }
 
-    const existingPayments =
+    throw new ConflictException(
+      'Could not record payment after retries',
+    );
+  }
+
+  // Partial Payment (COD advance): একটা COD order PENDING থেকে CONFIRMED-এ
+  // নেওয়ার আগে অন্তত shipping charge-টা advance হিসেবে পেইড থাকতে হবে।
+  // এটা fake/prank COD order ঠেকানোর জন্য — কুরিয়ার চার্জটা আগেই
+  // নিশ্চিত হয়ে গেলে গ্রাহক সহজে অর্ডার ক্যানসেল/রিজেক্ট করবে না।
+  private async getPaidAmount(
+    organizationId: number,
+    orderId: number,
+  ): Promise<number> {
+    const payments =
       await db.orm.public.Payment
         .where({
-          orderId: order.id,
+          organizationId,
+          orderId,
         })
         .all();
 
-    const paidAmount =
-      existingPayments
-        .filter(
-          (payment) =>
-            payment.status === 'PAID' ||
-            payment.status ===
-              'AUTHORIZED',
-        )
-        .reduce(
-          (total, payment) =>
-            total +
-            Number(payment.amount),
-          0,
-        );
-
-    const orderTotal =
-      Number(order.grandTotal);
-
-    const remainingAmount =
-      orderTotal - paidAmount;
-
-    if (dto.amount > remainingAmount) {
-      throw new BadRequestException(
-        `Payment amount exceeds remaining balance of ${remainingAmount.toFixed(2)}`,
+    return payments
+      .filter(
+        (payment) =>
+          payment.status === 'PAID' ||
+          payment.status === 'AUTHORIZED',
+      )
+      .reduce(
+        (total, payment) =>
+          total + Number(payment.amount),
+        0,
       );
-    }
-
-    const payment =
-      await db.orm.public.Payment.create({
-        orderId: order.id,
-        amount: money(dto.amount),
-        currency: order.currency,
-        status: 'PAID',
-        method: dto.method,
-        transactionId:
-          dto.transactionId ??
-          undefined,
-      });
-
-    const newPaidAmount =
-      paidAmount + dto.amount;
-
-    await db.orm.public.Order
-      .where({
-        id: order.id,
-        organizationId,
-      })
-      .update({
-        paymentStatus:
-          newPaidAmount >= orderTotal
-            ? 'PAID'
-            : 'PENDING',
-      });
-
-    return payment;
   }
 
   async confirmOrder(
@@ -616,6 +777,25 @@ export class OrderService {
       throw new BadRequestException(
         `Only PENDING orders can be confirmed (current: ${order.status})`,
       );
+    }
+
+    // COD order হলে অন্তত shipping charge-টা advance হিসেবে paid থাকতে
+    // হবে, নাহলে confirm করা যাবে না — fake order ঠেকানোর ব্যবস্থা।
+    if (order.paymentMethod === 'COD') {
+      const paidAmount =
+        await this.getPaidAmount(
+          organizationId,
+          order.id,
+        );
+
+      const requiredAdvance =
+        Number(order.shippingTotal);
+
+      if (paidAmount < requiredAdvance) {
+        throw new BadRequestException(
+          `COD order requires an advance payment of at least ${requiredAdvance.toFixed(2)} (courier charge) before it can be confirmed. Advance paid so far: ${paidAmount.toFixed(2)}`,
+        );
+      }
     }
 
     const updated =
@@ -659,9 +839,17 @@ export class OrderService {
       );
     }
 
+    // PROCESSING-কেও allow করা হচ্ছে — আগে শুধু PENDING/CONFIRMED cancel
+    // করা যেত, কিন্তু shipOrder() শুধু PROCESSING status থেকেই ship
+    // accept করে। তাই PROCESSING-এ cancel না থাকলে order একবার
+    // PROCESSING-এ গেলে ship করা ছাড়া কোনো exit থাকতো না (dead-end)।
+    // Stock এখনো শুধু reserve অবস্থায় আছে (finalize হয় deliverOrder-এ),
+    // তাই নিচের release-logic অপরিবর্তিত রেখেই PROCESSING থেকে cancel
+    // করা নিরাপদ।
     if (
       order.status !== 'PENDING' &&
-      order.status !== 'CONFIRMED'
+      order.status !== 'CONFIRMED' &&
+      order.status !== 'PROCESSING'
     ) {
       throw new BadRequestException(
         `Order cannot be cancelled (current: ${order.status})`,
@@ -1015,19 +1203,62 @@ export class OrderService {
         order.paymentMethod === 'COD' &&
         order.paymentStatus !== 'PAID'
       ) {
-        await tx.orm.public.Payment.create({
-          orderId: order.id,
-          amount: order.grandTotal,
-          currency: order.currency,
-          status: 'PAID',
-          method: 'COD',
-        });
+        // আগে এখানে পুরো order.grandTotal বসানো হতো — কিন্তু delivery-র
+        // আগে যদি কোনো advance/partial payment (createPayment দিয়ে)
+        // রেকর্ড করা থাকে, তাহলে paymentStatus এখনো 'PAID' না হওয়া
+        // সত্ত্বেও সেই advance-টা grandTotal-এর অংশ। পুরো grandTotal
+        // আবার COD payment হিসেবে বসালে টাকা ডাবল হয়ে যেত। তাই এখন
+        // remaining balance (grandTotal - আগের paid payments) বসানো
+        // হচ্ছে।
+        const existingPayments =
+          await tx.orm.public.Payment
+            .where({
+              orderId: order.id,
+            })
+            .all();
+
+        const alreadyPaid =
+          existingPayments
+            .filter(
+              (payment) =>
+                payment.status === 'PAID' ||
+                payment.status ===
+                  'AUTHORIZED',
+            )
+            .reduce(
+              (total, payment) =>
+                total +
+                Number(payment.amount),
+              0,
+            );
+
+        const orderTotal =
+          Number(order.grandTotal);
+
+        const remainingAmount =
+          Math.max(
+            0,
+            orderTotal - alreadyPaid,
+          );
+
+        if (remainingAmount > 0) {
+          await tx.orm.public.Payment.create({
+            organizationId,
+            orderId: order.id,
+            amount: money(remainingAmount),
+            currency: order.currency,
+            status: 'PAID',
+            method: 'COD',
+          });
+        }
 
         const paymentUpdated =
           await tx.orm.public.Order
             .where({
               id: order.id,
               organizationId,
+              paymentStatus:
+                order.paymentStatus,
             })
             .update({
               paymentStatus: 'PAID',
@@ -1160,11 +1391,50 @@ export class OrderService {
       }
 
       if (order.paymentStatus === 'PAID') {
+        // আগে এখানে শুধু paymentStatus flag বদলানো হতো, কোনো Payment
+        // audit row তৈরি হতো না — কত টাকা কবে ফেরত দেওয়া হলো তার কোনো
+        // ট্র্যাক থাকতো না। এখন negative-amount একটা Payment row তৈরি
+        // হচ্ছে, status 'REFUNDED', যাতে ledger-এ refund-টাও দেখা যায়।
+        const existingPayments =
+          await tx.orm.public.Payment
+            .where({
+              orderId: order.id,
+            })
+            .all();
+
+        const paidAmount =
+          existingPayments
+            .filter(
+              (payment) =>
+                payment.status === 'PAID' ||
+                payment.status ===
+                  'AUTHORIZED',
+            )
+            .reduce(
+              (total, payment) =>
+                total +
+                Number(payment.amount),
+              0,
+            );
+
+        if (paidAmount > 0) {
+          await tx.orm.public.Payment.create({
+            organizationId,
+            orderId: order.id,
+            amount: money(-paidAmount),
+            currency: order.currency,
+            status: 'REFUNDED',
+            method: order.paymentMethod,
+          });
+        }
+
         const paymentUpdated =
           await tx.orm.public.Order
             .where({
               id: order.id,
               organizationId,
+              paymentStatus:
+                order.paymentStatus,
             })
             .update({
               paymentStatus: 'REFUNDED',
@@ -1237,4 +1507,3 @@ export class OrderService {
   );
 }
 }
-

@@ -1,0 +1,284 @@
+[
+  {
+    "id": "table.paymentIntent",
+    "label": "Create table \"paymentIntent\"",
+    "summary": "Creates table \"paymentIntent\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "paymentIntent"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"paymentIntent\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"paymentIntent\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"paymentIntent\"",
+        "sql": "CREATE TABLE \"public\".\"paymentIntent\" (\n  \"amount\" numeric(12,2) NOT NULL,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"currency\" text DEFAULT 'BDT' NOT NULL,\n  \"customerId\" int4,\n  \"failureReason\" text,\n  \"gatewayPaymentId\" text NOT NULL,\n  \"id\" SERIAL NOT NULL,\n  \"invoiceNumber\" text NOT NULL,\n  \"orderId\" int4 NOT NULL,\n  \"organizationId\" int4 NOT NULL,\n  \"provider\" text NOT NULL,\n  \"publicId\" text NOT NULL,\n  \"redirectUrl\" text NOT NULL,\n  \"status\" text DEFAULT 'INITIATED' NOT NULL,\n  \"transactionId\" text,\n  \"userId\" int4 NOT NULL,\n  PRIMARY KEY (\"id\"),\n  CONSTRAINT \"paymentIntent_provider_check_5cf069c7\" CHECK (\"provider\" IN ('COD', 'BKASH', 'NAGAD', 'ROCKET', 'CARD', 'OTHER')),\n  CONSTRAINT \"paymentIntent_status_check_fbb3901c\" CHECK (\"status\" IN ('INITIATED', 'COMPLETED', 'FAILED', 'NEEDS_REVIEW'))\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"paymentIntent\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"paymentIntent\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.paymentIntent.paymentIntent_publicId_key",
+    "label": "Add unique constraint on \"paymentIntent\" (publicId)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "paymentIntent_publicId_key",
+        "table": "paymentIntent"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"paymentIntent_publicId_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "paymentIntent_publicId_key",
+          "public",
+          "\"public\".\"paymentIntent\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"paymentIntent_publicId_key\"",
+        "sql": "ALTER TABLE \"public\".\"paymentIntent\" ADD CONSTRAINT \"paymentIntent_publicId_key\" UNIQUE (\"publicId\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"paymentIntent_publicId_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "paymentIntent_publicId_key",
+          "public",
+          "\"public\".\"paymentIntent\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.paymentIntent.paymentIntent_invoiceNumber_key",
+    "label": "Add unique constraint on \"paymentIntent\" (invoiceNumber)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "paymentIntent_invoiceNumber_key",
+        "table": "paymentIntent"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"paymentIntent_invoiceNumber_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "paymentIntent_invoiceNumber_key",
+          "public",
+          "\"public\".\"paymentIntent\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"paymentIntent_invoiceNumber_key\"",
+        "sql": "ALTER TABLE \"public\".\"paymentIntent\" ADD CONSTRAINT \"paymentIntent_invoiceNumber_key\" UNIQUE (\"invoiceNumber\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"paymentIntent_invoiceNumber_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "paymentIntent_invoiceNumber_key",
+          "public",
+          "\"public\".\"paymentIntent\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.paymentIntent.paymentIntent_provider_gatewayPaymentId_key",
+    "label": "Add unique constraint on \"paymentIntent\" (provider, gatewayPaymentId)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "paymentIntent_provider_gatewayPaymentId_key",
+        "table": "paymentIntent"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"paymentIntent_provider_gatewayPaymentId_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "paymentIntent_provider_gatewayPaymentId_key",
+          "public",
+          "\"public\".\"paymentIntent\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"paymentIntent_provider_gatewayPaymentId_key\"",
+        "sql": "ALTER TABLE \"public\".\"paymentIntent\" ADD CONSTRAINT \"paymentIntent_provider_gatewayPaymentId_key\" UNIQUE (\"provider\", \"gatewayPaymentId\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"paymentIntent_provider_gatewayPaymentId_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "paymentIntent_provider_gatewayPaymentId_key",
+          "public",
+          "\"public\".\"paymentIntent\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.paymentIntent.paymentIntent_orderId_idx_d284871b",
+    "label": "Create index \"paymentIntent_orderId_idx_d284871b\" on \"paymentIntent\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "paymentIntent_orderId_idx_d284871b",
+        "table": "paymentIntent"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"paymentIntent_orderId_idx_d284871b\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"paymentIntent_orderId_idx_d284871b\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"paymentIntent_orderId_idx_d284871b\"",
+        "sql": "CREATE INDEX \"paymentIntent_orderId_idx_d284871b\" ON \"public\".\"paymentIntent\" (\"orderId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"paymentIntent_orderId_idx_d284871b\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"paymentIntent_orderId_idx_d284871b\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.paymentIntent.paymentIntent_organizationId_status_idx_21af5e82",
+    "label": "Create index \"paymentIntent_organizationId_status_idx_21af5e82\" on \"paymentIntent\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "paymentIntent_organizationId_status_idx_21af5e82",
+        "table": "paymentIntent"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"paymentIntent_organizationId_status_idx_21af5e82\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"paymentIntent_organizationId_status_idx_21af5e82\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"paymentIntent_organizationId_status_idx_21af5e82\"",
+        "sql": "CREATE INDEX \"paymentIntent_organizationId_status_idx_21af5e82\" ON \"public\".\"paymentIntent\" (\"organizationId\", \"status\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"paymentIntent_organizationId_status_idx_21af5e82\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"paymentIntent_organizationId_status_idx_21af5e82\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.paymentIntent.paymentIntent_status_idx_e98638ab",
+    "label": "Create index \"paymentIntent_status_idx_e98638ab\" on \"paymentIntent\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "paymentIntent_status_idx_e98638ab",
+        "table": "paymentIntent"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"paymentIntent_status_idx_e98638ab\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"paymentIntent_status_idx_e98638ab\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"paymentIntent_status_idx_e98638ab\"",
+        "sql": "CREATE INDEX \"paymentIntent_status_idx_e98638ab\" ON \"public\".\"paymentIntent\" (\"status\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"paymentIntent_status_idx_e98638ab\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"paymentIntent_status_idx_e98638ab\""
+        ]
+      }
+    ]
+  }
+]
