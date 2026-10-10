@@ -67,21 +67,22 @@ export class OrderService {
 
     const prefix = `ORD-${datePart}-`;
 
-    const allOrders = await db.orm.public.Order.all();
+    // আগে এখানে পুরো Order টেবিল মেমরিতে আনা হতো। এখন শুধু আজকের সর্বশেষ
+    // order-টা (১টা সারি) এনে তার নম্বর থেকে পরের নম্বর বানানো হয়।
+    // দুটো order একসাথে একই নম্বর বানালে `orderNumber @unique` ডুপ্লিকেট
+    // আটকায়, আর createOrder-এর retry লুপ নতুন করে চেষ্টা করে।
+    const latest = await db.orm.public.Order
+      .where((o) => o.orderNumber.like(`${prefix}%`))
+      .orderBy((o) => o.id.desc())
+      .first();
 
-    const todaysCount = allOrders.filter((o) =>
-      o.orderNumber.startsWith(prefix),
-    ).length;
+    const lastSeq = latest
+      ? Number.parseInt(latest.orderNumber.slice(prefix.length), 10)
+      : 0;
 
-    let seq = todaysCount + 1;
-    let orderNumber = `${prefix}${String(seq).padStart(4, '0')}`;
+    const seq = (Number.isFinite(lastSeq) ? lastSeq : 0) + 1;
 
-    while (allOrders.some((o) => o.orderNumber === orderNumber)) {
-      seq += 1;
-      orderNumber = `${prefix}${String(seq).padStart(4, '0')}`;
-    }
-
-    return orderNumber;
+    return `${prefix}${String(seq).padStart(4, '0')}`;
   }
 
   async createOrder(
@@ -472,6 +473,14 @@ export class OrderService {
           attempt === 5
         ) {
           throw error;
+        }
+
+        // একসাথে অনেক order এলে সবাই একই মুহূর্তে আবার চেষ্টা করলে বারবার
+        // সংঘর্ষ হয়; তাই নম্বর-সংঘর্ষে সামান্য এলোমেলো বিরতি দিই
+        if (isOrderNumberClash) {
+          await new Promise((resolve) =>
+            setTimeout(resolve, 15 + Math.random() * 45 * attempt),
+          );
         }
       }
     }
